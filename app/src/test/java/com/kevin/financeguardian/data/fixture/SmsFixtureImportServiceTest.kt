@@ -91,6 +91,24 @@ class SmsFixtureImportServiceTest {
         assertEquals("income", database.transactionDao().getById("transaction-1")?.categoryId)
     }
 
+    @Test
+    fun importsStaticFixtureResources() = runTest {
+        val parsed = service(ids = listOf("sms-1", "transaction-1", "merchant-1"))
+            .importJson(resourceText("sms-fixtures/mtn-income.json"))
+            .single()
+
+        assertEquals(SmsIngestionResult.Parsed("sms-1", "transaction-1"), parsed.ingestionResult)
+
+        val ignored = service(ids = listOf("sms-ignored"))
+            .importJson(resourceText("sms-fixtures/ignored-otp.json"))
+            .single()
+
+        assertEquals(
+            SmsIngestionResult.Ignored("sms-ignored", "No financial transaction pattern matched"),
+            ignored.ingestionResult,
+        )
+    }
+
     private fun service(ids: List<String>): SmsFixtureImportService {
         val idGenerator = FakeIdGenerator(ids)
         val ingestionService = SmsIngestionService(
@@ -141,6 +159,9 @@ class SmsFixtureImportServiceTest {
           "receivedAt": "2026-04-21T18:00:00Z"
         }
         """.trimIndent()
+
+    private fun resourceText(path: String): String =
+        requireNotNull(javaClass.classLoader?.getResource(path)).readText()
 
     private class FakeIdGenerator(ids: List<String>) : IdGenerator {
         private val queue = ArrayDeque(ids)

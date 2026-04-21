@@ -1,0 +1,6 @@
+{
+  "provider": "MTN_MOMO",
+  "sender": "MobileMoney",
+  "body": "Payment received for GHS 77.00 from SAMPLE SENDER Current Balance: GHS 538.01. Reference: R. Transaction ID: 123.",
+  "receivedAt": "2026-04-21T18:00:00Z"
+}
