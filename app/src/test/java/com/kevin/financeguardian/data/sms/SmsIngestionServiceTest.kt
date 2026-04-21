@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.kevin.financeguardian.core.id.IdGenerator
 import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.local.FinanceGuardianDatabase
+import com.kevin.financeguardian.data.local.entity.MerchantEntity
+import com.kevin.financeguardian.data.merchant.MerchantCategoryResolver
 import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.ParseStatus
 import com.kevin.financeguardian.domain.model.Provider
@@ -56,7 +58,7 @@ class SmsIngestionServiceTest {
     fun parsedSmsInsertsSmsRecordAndTransaction() = runTest {
         val service = service(
             parserResult = parsedResult(),
-            ids = listOf("sms-1", "transaction-1"),
+            ids = listOf("sms-1", "transaction-1", "merchant-1"),
         )
 
         val result = service.ingest(envelope)
@@ -77,6 +79,41 @@ class SmsIngestionServiceTest {
         assertEquals(7700L, transaction?.amountMinor)
         assertEquals(processedAt, transaction?.createdAt)
         assertEquals(processedAt, transaction?.updatedAt)
+    }
+
+    @Test
+    fun parsedSmsCreatesMerchantForCounterparty() = runTest {
+        val service = service(
+            parserResult = parsedResult(),
+            ids = listOf("sms-1", "transaction-1", "merchant-1"),
+        )
+
+        service.ingest(envelope)
+
+        val merchant = database.merchantDao().findByNormalizedName("sample sender")
+        assertEquals("merchant-1", merchant?.id)
+        assertEquals("SAMPLE SENDER", merchant?.displayName)
+        assertEquals("transaction-1", merchant?.createdFromTransactionId)
+        assertNull(merchant?.defaultCategoryId)
+    }
+
+    @Test
+    fun parsedSmsAppliesExistingMerchantDefaultCategoryByName() = runTest {
+        insertMerchant(
+            id = "merchant-1",
+            displayName = "Sample Sender",
+            normalizedName = "sample sender",
+            phone = null,
+            defaultCategoryId = "income",
+        )
+        val service = service(
+            parserResult = parsedResult(),
+            ids = listOf("sms-1", "transaction-1"),
+        )
+
+        service.ingest(envelope)
+
+        assertEquals("income", database.transactionDao().getById("transaction-1")?.categoryId)
     }
 
     @Test
@@ -117,7 +154,7 @@ class SmsIngestionServiceTest {
     fun duplicateSmsReturnsDuplicateWithoutParsingOrInsertingAgain() = runTest {
         val service = service(
             parserResult = parsedResult(),
-            ids = listOf("sms-1", "transaction-1"),
+            ids = listOf("sms-1", "transaction-1", "merchant-1"),
         )
         service.ingest(envelope)
 
@@ -128,6 +165,10 @@ class SmsIngestionServiceTest {
             parser = duplicateParser,
             idGenerator = FakeIdGenerator(emptyList()),
             clock = FixedClock(processedAt),
+            merchantCategoryResolver = MerchantCategoryResolver(
+                merchantDao = database.merchantDao(),
+                idGenerator = FakeIdGenerator(emptyList()),
+            ),
         )
 
         val result = duplicateService.ingest(envelope)
@@ -140,14 +181,41 @@ class SmsIngestionServiceTest {
     private fun service(
         parserResult: SmsParseResult,
         ids: List<String>,
-    ): SmsIngestionService =
-        SmsIngestionService(
+    ): SmsIngestionService {
+        val idGenerator = FakeIdGenerator(ids)
+        return SmsIngestionService(
             smsMessageRecordDao = database.smsMessageRecordDao(),
             transactionDao = database.transactionDao(),
             parser = RecordingParser(parserResult),
-            idGenerator = FakeIdGenerator(ids),
+            idGenerator = idGenerator,
             clock = FixedClock(processedAt),
+            merchantCategoryResolver = MerchantCategoryResolver(
+                merchantDao = database.merchantDao(),
+                idGenerator = idGenerator,
+            ),
         )
+    }
+
+    private suspend fun insertMerchant(
+        id: String,
+        displayName: String,
+        normalizedName: String,
+        phone: String?,
+        defaultCategoryId: String?,
+    ) {
+        database.merchantDao().upsert(
+            MerchantEntity(
+                id = id,
+                displayName = displayName,
+                normalizedName = normalizedName,
+                phone = phone,
+                defaultCategoryId = defaultCategoryId,
+                createdFromTransactionId = null,
+                createdAt = processedAt,
+                updatedAt = processedAt,
+            ),
+        )
+    }
 
     private fun parsedResult(): SmsParseResult.Parsed =
         SmsParseResult.Parsed(

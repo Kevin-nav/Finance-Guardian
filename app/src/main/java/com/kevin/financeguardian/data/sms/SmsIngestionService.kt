@@ -6,6 +6,7 @@ import com.kevin.financeguardian.data.local.dao.SmsMessageRecordDao
 import com.kevin.financeguardian.data.local.dao.TransactionDao
 import com.kevin.financeguardian.data.local.entity.SmsMessageRecordEntity
 import com.kevin.financeguardian.data.local.entity.TransactionEntity
+import com.kevin.financeguardian.data.merchant.MerchantCategoryResolver
 import com.kevin.financeguardian.domain.model.ParseStatus
 import com.kevin.financeguardian.domain.parser.SmsParseInput
 import com.kevin.financeguardian.domain.parser.SmsParseResult
@@ -18,6 +19,7 @@ class SmsIngestionService @Inject constructor(
     private val parser: SmsTransactionParser,
     private val idGenerator: IdGenerator,
     private val clock: AppClock,
+    private val merchantCategoryResolver: MerchantCategoryResolver,
 ) {
     suspend fun ingest(envelope: SmsMessageEnvelope): SmsIngestionResult {
         val bodyHash = BodyHasher.sha256Hex(envelope.body)
@@ -78,6 +80,12 @@ class SmsIngestionService @Inject constructor(
         )
 
         val parsed = result.transaction
+        val categoryId = merchantCategoryResolver.resolveForParsedTransaction(
+            counterpartyName = parsed.counterpartyName,
+            counterpartyPhone = parsed.counterpartyPhone,
+            transactionId = transactionId,
+            now = now,
+        )
         transactionDao.insert(
             TransactionEntity(
                 id = transactionId,
@@ -94,7 +102,7 @@ class SmsIngestionService @Inject constructor(
                 counterpartyPhone = parsed.counterpartyPhone,
                 reference = parsed.reference,
                 balanceAfterMinor = parsed.balanceAfterMinor,
-                categoryId = null,
+                categoryId = categoryId,
                 confidence = result.confidence,
                 createdAt = now,
                 updatedAt = now,
