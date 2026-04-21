@@ -15,22 +15,22 @@ class FinanceGuardianSmsParserTest {
     fun dispatchesMtnTelecelAndGcbMessages() {
         assertEquals(
             Provider.MTN_MOMO,
-            parse("MTN MoMo", "Payment received for GHS 77.00 from SAMPLE SENDER Current Balance: GHS 538.01. Reference: R. Transaction ID: 123.").parsed().transaction.provider,
+            parse("MobileMoney", "Payment received for GHS 77.00 from SAMPLE SENDER Current Balance: GHS 538.01. Reference: R. Transaction ID: 123.").parsed().transaction.provider,
         )
         assertEquals(
             Provider.TELECEL_CASH,
-            parse("Telecel", "000001 Confirmed. You bought GHS1.00 of airtime for 233000000000 on 2026-02-03 at 16:01:10. Your Telecel Cash balance is GHS0.62.").parsed().transaction.provider,
+            parse("T-CASH", "000001 Confirmed. You bought GHS1.00 of airtime for 233000000000 on 2026-02-03 at 16:01:10. Your Telecel Cash balance is GHS0.62.").parsed().transaction.provider,
         )
         assertEquals(
             Provider.GCB,
-            parse("GCB", "Hi Customer Your A/C No:XXXX0000 has been debited GHS25.83 Desc: Spotify Stockholm Date: 2026-03-30 06:43 Bal: GHS 12.61").parsed().transaction.provider,
+            parse("GCB Bank", "Hi Customer Your A/C No:XXXX0000 has been debited GHS25.83 Desc: Spotify Stockholm Date: 2026-03-30 06:43 Bal: GHS 12.61").parsed().transaction.provider,
         )
     }
 
     @Test
     fun ignoresFailedAndPromotionalMessages() {
         assertTrue(parse("Telecel", "Failed. Your Transfer of GHS30.00 sent to 0240000000 SAMPLE NAME was unsuccessful.") is SmsParseResult.Ignored)
-        assertTrue(parse("GCB", "Dear Valued Customer, GCB Bank will NEVER call to request your PIN.") is SmsParseResult.Ignored)
+        assertTrue(parse("GCB Bank", "Dear Valued Customer, GCB Bank will NEVER call to request your PIN.") is SmsParseResult.Ignored)
     }
 
     @Test
