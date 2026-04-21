@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
 import com.kevin.financeguardian.data.local.entity.CategoryEntity
+import com.kevin.financeguardian.data.local.entity.MerchantEntity
 import com.kevin.financeguardian.data.local.entity.SmsMessageRecordEntity
 import com.kevin.financeguardian.data.local.entity.TransactionEntity
 import com.kevin.financeguardian.domain.model.CategoryType
@@ -120,6 +121,31 @@ class FinanceGuardianDatabaseTest {
         seeder.seedIfEmpty()
 
         assertTrue(database.categoryDao().getAllOnce().size == DefaultCategories.values.size)
+    }
+
+    @Test
+    fun updateMerchantDefaultCategoryChangesMerchant() = runTest {
+        val now = Instant.parse("2026-04-21T12:00:00Z")
+        database.merchantDao().upsert(
+            MerchantEntity(
+                id = "merchant-1",
+                displayName = "Shoprite",
+                normalizedName = "shoprite",
+                phone = null,
+                defaultCategoryId = null,
+                createdFromTransactionId = null,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+
+        database.merchantDao().updateDefaultCategory(
+            id = "merchant-1",
+            defaultCategoryId = "food",
+            updatedAt = now.plusSeconds(60),
+        )
+
+        assertEquals("food", database.merchantDao().getById("merchant-1")?.defaultCategoryId)
     }
 
     private fun sampleTransaction(): TransactionEntity {
