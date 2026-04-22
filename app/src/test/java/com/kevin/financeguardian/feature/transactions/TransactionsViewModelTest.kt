@@ -289,8 +289,27 @@ class TransactionsViewModelTest {
 
         override suspend fun getAllOnce(): List<CategoryEntity> = categories.value
 
+        override suspend fun getById(categoryId: String): CategoryEntity? =
+            categories.value.firstOrNull { it.id == categoryId }
+
+        override suspend fun upsert(category: CategoryEntity) {
+            replace(categories.value.filterNot { it.id == category.id } + category)
+        }
+
         override suspend fun upsertAll(categories: List<CategoryEntity>) {
             replace(categories)
+        }
+
+        override suspend fun archive(categoryId: String, updatedAt: Instant) {
+            replace(
+                categories.value.map {
+                    if (it.id == categoryId) {
+                        it.copy(isArchived = true, updatedAt = updatedAt)
+                    } else {
+                        it
+                    }
+                },
+            )
         }
 
         fun replace(next: List<CategoryEntity>) {
