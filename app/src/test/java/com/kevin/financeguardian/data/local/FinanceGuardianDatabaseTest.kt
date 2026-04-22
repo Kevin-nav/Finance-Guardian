@@ -79,6 +79,35 @@ class FinanceGuardianDatabaseTest {
     }
 
     @Test
+    fun categoryDaoCanUpsertLookupAndArchiveCategory() = runTest {
+        val now = Instant.parse("2026-04-21T12:00:00Z")
+        val category = CategoryEntity(
+            id = "custom-rent",
+            name = "Rent",
+            type = CategoryType.EXPENSE,
+            createdAt = now,
+            updatedAt = now,
+        )
+
+        database.categoryDao().upsert(category)
+
+        assertEquals(category, database.categoryDao().getById("custom-rent"))
+
+        database.categoryDao().archive(
+            categoryId = "custom-rent",
+            updatedAt = now.plusSeconds(60),
+        )
+
+        val archived = database.categoryDao().getById("custom-rent")
+        assertTrue(archived?.isArchived == true)
+        assertEquals(now.plusSeconds(60), archived?.updatedAt)
+        database.categoryDao().observeAll().test {
+            assertEquals(emptyList<CategoryEntity>(), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun insertTransactionCanBeObserved() = runTest {
         val transaction = sampleTransaction()
 
