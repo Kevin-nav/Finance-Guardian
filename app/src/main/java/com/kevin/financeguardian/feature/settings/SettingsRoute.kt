@@ -37,7 +37,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.kevin.financeguardian.ui.theme.extendedColors
 import com.kevin.financeguardian.ui.theme.spacing
 
@@ -45,10 +47,15 @@ import com.kevin.financeguardian.ui.theme.spacing
 fun SettingsRoute(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
+    onRequestSmsPermission: () -> Unit = {},
+    onRequestNotificationPermission: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val spacing = MaterialTheme.spacing
-    val extColors = MaterialTheme.extendedColors
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshPermissions()
+    }
 
     Column(
         modifier = modifier
@@ -95,6 +102,7 @@ fun SettingsRoute(
                 icon = Icons.Filled.Sms,
                 title = "SMS Access",
                 isGranted = uiState.permissions.receiveSmsGranted,
+                onGrantClick = onRequestSmsPermission,
             )
 
             HorizontalDivider(
@@ -106,6 +114,7 @@ fun SettingsRoute(
                 icon = Icons.Filled.Notifications,
                 title = "Notifications",
                 isGranted = uiState.permissions.postNotificationsGranted,
+                onGrantClick = onRequestNotificationPermission,
             )
         }
 
@@ -280,6 +289,7 @@ private fun SettingsStatusRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     isGranted: Boolean,
+    onGrantClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
@@ -324,8 +334,8 @@ private fun SettingsStatusRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = if (isGranted) ext.income else ext.expense,
             )
-            if (!isGranted) {
-                TextButton(onClick = { /* TODO: request permission */ }) {
+            if (!isGranted && onGrantClick != null) {
+                TextButton(onClick = onGrantClick) {
                     Text("Grant")
                 }
             }

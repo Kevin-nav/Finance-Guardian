@@ -7,9 +7,10 @@ import com.kevin.financeguardian.core.permissions.PermissionStatusChecker
 import com.kevin.financeguardian.data.preferences.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -18,8 +19,12 @@ class SettingsViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val permissionStatusChecker: PermissionStatusChecker,
 ) : ViewModel() {
-    val uiState: StateFlow<SettingsUiState> = userPreferencesRepository.preferences
-        .map { preferences ->
+    private val permissionRefreshes = MutableStateFlow(0)
+
+    val uiState: StateFlow<SettingsUiState> = combine(
+        userPreferencesRepository.preferences,
+        permissionRefreshes,
+    ) { preferences, _ ->
             SettingsUiState(
                 appLockEnabled = preferences.appLockEnabled,
                 screenPrivacyEnabled = preferences.screenPrivacyEnabled,
@@ -29,7 +34,7 @@ class SettingsViewModel @Inject constructor(
         }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
+            started = SharingStarted.Eagerly,
             initialValue = SettingsUiState(),
         )
 
@@ -43,6 +48,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setDebugParserModeEnabled(enabled: Boolean) {
         viewModelScope.launch { userPreferencesRepository.setDebugParserModeEnabled(enabled) }
+    }
+
+    fun refreshPermissions() {
+        permissionRefreshes.value += 1
     }
 }
 

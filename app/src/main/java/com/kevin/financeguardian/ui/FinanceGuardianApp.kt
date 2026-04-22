@@ -1,6 +1,7 @@
 package com.kevin.financeguardian.ui
 
 import android.Manifest
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.tween
@@ -53,6 +54,12 @@ fun FinanceGuardianApp(
         contract = ActivityResultContracts.RequestPermission(),
     ) {
         viewModel.onSmsPermissionResult()
+        viewModel.refreshPermissions()
+    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) {
+        viewModel.refreshPermissions()
     }
 
     if (uiState.shouldShowOnboarding) {
@@ -164,7 +171,18 @@ fun FinanceGuardianApp(
                 CategoriesRoute()
             }
             composable(FinanceGuardianDestination.Settings.route) {
-                SettingsRoute()
+                SettingsRoute(
+                    onRequestSmsPermission = {
+                        smsPermissionLauncher.launch(Manifest.permission.RECEIVE_SMS)
+                    },
+                    onRequestNotificationPermission = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            viewModel.refreshPermissions()
+                        }
+                    },
+                )
             }
         }
     }
