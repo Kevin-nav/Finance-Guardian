@@ -112,6 +112,22 @@ class AppShellViewModelTest {
         assertTrue(viewModel.uiState.value.shouldShowLock)
     }
 
+    @Test
+    fun lockWhenAppLockDisabledStillReportsDisabled() = runTest {
+        val repository = repository("lock-disabled.preferences_pb")
+        repository.setOnboardingCompleted(true)
+        repository.setAppLockEnabled(false)
+        val viewModel = viewModel(repository = repository)
+
+        viewModel.unlock()
+        advanceUntilIdle()
+        viewModel.lock()
+        advanceUntilIdle()
+
+        assertEquals(AppLockState.Disabled, viewModel.uiState.value.appLockState)
+        assertFalse(viewModel.uiState.value.shouldShowLock)
+    }
+
     private fun viewModel(
         repository: UserPreferencesRepository = repository("preferences-${System.nanoTime()}.preferences_pb"),
         checker: FakePermissionStatusChecker = FakePermissionStatusChecker(),
