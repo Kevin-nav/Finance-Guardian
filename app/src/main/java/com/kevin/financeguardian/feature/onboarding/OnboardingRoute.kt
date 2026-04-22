@@ -47,8 +47,8 @@ import com.kevin.financeguardian.ui.theme.spacing
 @Composable
 fun OnboardingRoute(
     modifier: Modifier = Modifier,
-    onPermissionGranted: () -> Unit = {},
-    onSkip: () -> Unit = {},
+    onRequestSmsPermission: () -> Unit = {},
+    onSetUpLater: () -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
 
@@ -161,7 +161,7 @@ fun OnboardingRoute(
 
         // ── CTA ─────────────────────────────────────────────────────────
         Button(
-            onClick = onPermissionGranted,
+            onClick = onRequestSmsPermission,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
@@ -179,7 +179,7 @@ fun OnboardingRoute(
 
         Spacer(modifier = Modifier.height(spacing.xs))
 
-        TextButton(onClick = onSkip) {
+        TextButton(onClick = onSetUpLater) {
             Text(
                 text = "Set up later",
                 style = MaterialTheme.typography.labelLarge,

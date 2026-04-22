@@ -1,5 +1,8 @@
 package com.kevin.financeguardian.ui
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -26,6 +29,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -33,12 +38,34 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.kevin.financeguardian.feature.categories.CategoriesRoute
 import com.kevin.financeguardian.feature.insights.InsightsRoute
+import com.kevin.financeguardian.feature.onboarding.OnboardingRoute
 import com.kevin.financeguardian.feature.settings.SettingsRoute
 import com.kevin.financeguardian.feature.transactions.TransactionsRoute
 import com.kevin.financeguardian.ui.theme.spacing
 
 @Composable
-fun FinanceGuardianApp(modifier: Modifier = Modifier) {
+fun FinanceGuardianApp(
+    modifier: Modifier = Modifier,
+    viewModel: AppShellViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val smsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) {
+        viewModel.onSmsPermissionResult()
+    }
+
+    if (uiState.shouldShowOnboarding) {
+        OnboardingRoute(
+            modifier = modifier,
+            onRequestSmsPermission = {
+                smsPermissionLauncher.launch(Manifest.permission.RECEIVE_SMS)
+            },
+            onSetUpLater = viewModel::completeOnboarding,
+        )
+        return
+    }
+
     val navController = rememberNavController()
     val destinations = listOf(
         FinanceGuardianDestination.Home,
