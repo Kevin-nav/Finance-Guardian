@@ -29,7 +29,16 @@ class MainActivity : FragmentActivity() {
         observeScreenPrivacy()
         setContent {
             FinanceGuardianTheme {
-                FinanceGuardianApp()
+                FinanceGuardianApp(
+                    onAuthenticate = { onSuccess, onFailure, onError ->
+                        appLockAuthenticator.authenticate(
+                            activity = this,
+                            onSuccess = onSuccess,
+                            onFailure = onFailure,
+                            onError = onError,
+                        )
+                    },
+                )
             }
         }
     }

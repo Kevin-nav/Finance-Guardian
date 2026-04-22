@@ -26,6 +26,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -40,14 +41,22 @@ import androidx.navigation.compose.rememberNavController
 import com.kevin.financeguardian.feature.categories.CategoriesRoute
 import com.kevin.financeguardian.feature.insights.InsightsRoute
 import com.kevin.financeguardian.feature.onboarding.OnboardingRoute
+import com.kevin.financeguardian.feature.security.AppLockRoute
 import com.kevin.financeguardian.feature.settings.SettingsRoute
 import com.kevin.financeguardian.feature.transactions.TransactionsRoute
 import com.kevin.financeguardian.ui.theme.spacing
+
+typealias AuthenticateAppLock = (
+    onSuccess: () -> Unit,
+    onFailure: () -> Unit,
+    onError: (String) -> Unit,
+) -> Unit
 
 @Composable
 fun FinanceGuardianApp(
     modifier: Modifier = Modifier,
     viewModel: AppShellViewModel = hiltViewModel(),
+    onAuthenticate: AuthenticateAppLock = { onSuccess, _, _ -> onSuccess() },
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val smsPermissionLauncher = rememberLauncherForActivityResult(
@@ -69,6 +78,28 @@ fun FinanceGuardianApp(
                 smsPermissionLauncher.launch(Manifest.permission.RECEIVE_SMS)
             },
             onSetUpLater = viewModel::completeOnboarding,
+        )
+        return
+    }
+
+    fun authenticate() {
+        onAuthenticate(
+            { viewModel.unlock() },
+            { },
+            { },
+        )
+    }
+
+    LaunchedEffect(uiState.shouldShowLock) {
+        if (uiState.shouldShowLock) {
+            authenticate()
+        }
+    }
+
+    if (uiState.shouldShowLock) {
+        AppLockRoute(
+            modifier = modifier,
+            onUnlockClick = ::authenticate,
         )
         return
     }
