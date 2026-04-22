@@ -2,12 +2,13 @@ package com.kevin.financeguardian
 
 import android.os.Bundle
 import android.view.WindowManager
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.kevin.financeguardian.core.security.AndroidAppLockAuthenticator
 import com.kevin.financeguardian.data.preferences.UserPreferencesRepository
 import com.kevin.financeguardian.ui.FinanceGuardianApp
 import com.kevin.financeguardian.ui.theme.FinanceGuardianTheme
@@ -18,8 +19,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     @Inject lateinit var userPreferencesRepository: UserPreferencesRepository
+    @Inject lateinit var appLockAuthenticator: AndroidAppLockAuthenticator
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
