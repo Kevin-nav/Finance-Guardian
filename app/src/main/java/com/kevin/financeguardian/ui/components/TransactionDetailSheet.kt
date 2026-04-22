@@ -84,6 +84,7 @@ fun TransactionDetailSheet(
     onDismiss: () -> Unit,
     onSave: (selectedCategory: String, selectedType: String) -> Unit,
     modifier: Modifier = Modifier,
+    categoryOptions: List<String> = availableCategories,
 ) {
     val spacing = MaterialTheme.spacing
     val ext = MaterialTheme.extendedColors
@@ -196,7 +197,7 @@ fun TransactionDetailSheet(
                 horizontalArrangement = Arrangement.spacedBy(spacing.xs),
                 verticalArrangement = Arrangement.spacedBy(spacing.xxs),
             ) {
-                availableCategories.forEach { category ->
+                categoryOptions.forEach { category ->
                     val isSelected = category == selectedCategory
                     FilterChip(
                         selected = isSelected,
