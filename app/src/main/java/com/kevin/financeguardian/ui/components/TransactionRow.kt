@@ -1,11 +1,15 @@
 package com.kevin.financeguardian.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
@@ -13,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.kevin.financeguardian.ui.theme.extendedColors
 import com.kevin.financeguardian.ui.theme.spacing
@@ -47,7 +52,7 @@ fun TransactionRow(
         ),
         colors = CardDefaults.elevatedCardColors(
             containerColor = if (isUnknownCategory) {
-                MaterialTheme.colorScheme.surfaceContainerLow
+                ext.warningContainer.copy(alpha = 0.15f)
             } else {
                 MaterialTheme.colorScheme.surfaceContainerLow
             },
@@ -60,7 +65,19 @@ fun TransactionRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
-            CategoryIcon(categoryName = categoryName)
+            // Category icon with optional warning dot
+            Box {
+                CategoryIcon(categoryName = categoryName)
+                if (isUnknownCategory) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(ext.warning)
+                            .align(Alignment.TopEnd),
+                    )
+                }
+            }
 
             Column(
                 modifier = Modifier.weight(1f),
@@ -72,24 +89,13 @@ fun TransactionRow(
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                 )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (isUnknownCategory) {
-                        Text(
-                            text = "⚠",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    Text(
-                        text = "$categoryName · $timestamp",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isUnknownCategory) ext.warning
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
-                }
+                Text(
+                    text = "$categoryName · $timestamp",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isUnknownCategory) ext.warning
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
             }
 
             Column(

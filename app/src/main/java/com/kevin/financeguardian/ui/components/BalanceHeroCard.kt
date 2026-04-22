@@ -16,7 +16,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import com.kevin.financeguardian.ui.theme.MoneyTypography
 import com.kevin.financeguardian.ui.theme.extendedColors
 import com.kevin.financeguardian.ui.theme.spacing
@@ -67,21 +66,21 @@ fun BalanceHeroCard(
                 icon = Icons.AutoMirrored.Filled.TrendingUp,
                 label = "Income",
                 amountMinor = incomeMinor,
-                tintColor = Color(0xFF6CD99B),
+                tintColor = ext.income,
                 currency = currency,
             )
             StatPill(
                 icon = Icons.AutoMirrored.Filled.TrendingDown,
                 label = "Spent",
                 amountMinor = expensesMinor,
-                tintColor = Color(0xFFFFB4AB),
+                tintColor = ext.expense,
                 currency = currency,
             )
             StatPill(
                 icon = Icons.Filled.Savings,
                 label = "Saved",
                 amountMinor = savingsMinor,
-                tintColor = Color(0xFF8BCEFF),
+                tintColor = ext.savings,
                 currency = currency,
             )
         }

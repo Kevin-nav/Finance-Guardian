@@ -4,11 +4,13 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
@@ -54,6 +56,12 @@ typealias AuthenticateAppLock = (
     onError: (String) -> Unit,
 ) -> Unit
 
+private enum class AppScreen {
+    Onboarding,
+    Lock,
+    Main,
+}
+
 @Composable
 fun FinanceGuardianApp(
     modifier: Modifier = Modifier,
@@ -81,15 +89,10 @@ fun FinanceGuardianApp(
         viewModel.refreshPermissions()
     }
 
-    if (uiState.shouldShowOnboarding) {
-        OnboardingRoute(
-            modifier = modifier,
-            onRequestSmsPermission = {
-                smsPermissionLauncher.launch(Manifest.permission.RECEIVE_SMS)
-            },
-            onSetUpLater = viewModel::completeOnboarding,
-        )
-        return
+    val currentScreen = when {
+        uiState.shouldShowOnboarding -> AppScreen.Onboarding
+        uiState.shouldShowLock -> AppScreen.Lock
+        else -> AppScreen.Main
     }
 
     fun authenticate() {
@@ -106,14 +109,61 @@ fun FinanceGuardianApp(
         }
     }
 
-    if (uiState.shouldShowLock) {
-        AppLockRoute(
-            modifier = modifier,
-            onUnlockClick = ::authenticate,
-        )
-        return
+    AnimatedContent(
+        targetState = currentScreen,
+        transitionSpec = {
+            (fadeIn(tween(300))).togetherWith(fadeOut(tween(200)))
+        },
+        label = "app_screen_transition",
+    ) { screen ->
+        when (screen) {
+            AppScreen.Onboarding -> {
+                OnboardingRoute(
+                    modifier = modifier,
+                    onRequestSmsPermission = {
+                        smsPermissionLauncher.launch(Manifest.permission.RECEIVE_SMS)
+                    },
+                    onRequestNotificationPermission = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            viewModel.refreshPermissions()
+                        }
+                    },
+                    onSetUpLater = viewModel::completeOnboarding,
+                )
+            }
+            AppScreen.Lock -> {
+                AppLockRoute(
+                    modifier = modifier,
+                    onUnlockClick = ::authenticate,
+                )
+            }
+            AppScreen.Main -> {
+                MainAppContent(
+                    modifier = modifier,
+                    smsPermissionLauncher = {
+                        smsPermissionLauncher.launch(Manifest.permission.RECEIVE_SMS)
+                    },
+                    notificationPermissionLauncher = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            viewModel.refreshPermissions()
+                        }
+                    },
+                )
+            }
+        }
     }
+}
 
+@Composable
+private fun MainAppContent(
+    modifier: Modifier = Modifier,
+    smsPermissionLauncher: () -> Unit,
+    notificationPermissionLauncher: () -> Unit,
+) {
     val navController = rememberNavController()
     val destinations = listOf(
         FinanceGuardianDestination.Home,
@@ -178,27 +228,27 @@ fun FinanceGuardianApp(
             startDestination = FinanceGuardianDestination.Home.route,
             modifier = Modifier.padding(innerPadding),
             enterTransition = {
-                fadeIn(animationSpec = tween(200)) +
+                fadeIn(animationSpec = tween(250)) +
                     slideInHorizontally(
-                        initialOffsetX = { fullWidth -> fullWidth / 6 },
-                        animationSpec = tween(200),
+                        initialOffsetX = { fullWidth -> fullWidth / 8 },
+                        animationSpec = tween(250),
                     )
             },
             exitTransition = {
-                fadeOut(animationSpec = tween(150))
+                fadeOut(animationSpec = tween(200))
             },
             popEnterTransition = {
-                fadeIn(animationSpec = tween(200)) +
+                fadeIn(animationSpec = tween(250)) +
                     slideInHorizontally(
-                        initialOffsetX = { fullWidth -> -fullWidth / 6 },
-                        animationSpec = tween(200),
+                        initialOffsetX = { fullWidth -> -fullWidth / 8 },
+                        animationSpec = tween(250),
                     )
             },
             popExitTransition = {
-                fadeOut(animationSpec = tween(150)) +
+                fadeOut(animationSpec = tween(200)) +
                     slideOutHorizontally(
-                        targetOffsetX = { fullWidth -> fullWidth / 6 },
-                        animationSpec = tween(150),
+                        targetOffsetX = { fullWidth -> fullWidth / 8 },
+                        animationSpec = tween(200),
                     )
             },
         ) {
@@ -213,16 +263,8 @@ fun FinanceGuardianApp(
             }
             composable(FinanceGuardianDestination.Settings.route) {
                 SettingsRoute(
-                    onRequestSmsPermission = {
-                        smsPermissionLauncher.launch(Manifest.permission.RECEIVE_SMS)
-                    },
-                    onRequestNotificationPermission = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            viewModel.refreshPermissions()
-                        }
-                    },
+                    onRequestSmsPermission = smsPermissionLauncher,
+                    onRequestNotificationPermission = notificationPermissionLauncher,
                 )
             }
         }
