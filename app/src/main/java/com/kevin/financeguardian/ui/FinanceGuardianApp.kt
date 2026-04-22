@@ -1,9 +1,10 @@
 package com.kevin.financeguardian.ui
 
-import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
@@ -102,10 +103,28 @@ fun FinanceGuardianApp(modifier: Modifier = Modifier) {
             startDestination = FinanceGuardianDestination.Home.route,
             modifier = Modifier.padding(innerPadding),
             enterTransition = {
-                fadeIn(animationSpec = tween(150))
+                fadeIn(animationSpec = tween(200)) +
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> fullWidth / 6 },
+                        animationSpec = tween(200),
+                    )
             },
             exitTransition = {
                 fadeOut(animationSpec = tween(150))
+            },
+            popEnterTransition = {
+                fadeIn(animationSpec = tween(200)) +
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> -fullWidth / 6 },
+                        animationSpec = tween(200),
+                    )
+            },
+            popExitTransition = {
+                fadeOut(animationSpec = tween(150)) +
+                    slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> fullWidth / 6 },
+                        animationSpec = tween(150),
+                    )
             },
         ) {
             composable(FinanceGuardianDestination.Home.route) {

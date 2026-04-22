@@ -16,7 +16,7 @@ class SmsIntentExtractor @Inject constructor() {
             .mapIndexed { index, message ->
                 ExtractedPart(
                     index = index,
-                    sender = message.originatingAddress.orEmpty(),
+                    sender = message.originatingAddress.orEmpty().trim(),
                     body = message.messageBody.orEmpty(),
                     timestampMillis = message.timestampMillis,
                 )
@@ -25,22 +25,21 @@ class SmsIntentExtractor @Inject constructor() {
             .groupBy { it.sender to it.timestampMillis }
             .values
             .mapNotNull { parts ->
+                if (parts.size > SmsEnvelopeSanitizer.MAX_MULTIPART_SEGMENTS) return@mapNotNull null
                 val sorted = parts.sortedBy { it.index }
                 val sender = sorted.firstOrNull()?.sender.orEmpty()
                 val body = sorted.joinToString(separator = "") { it.body }
-                if (sender.isBlank() || body.isBlank()) {
-                    null
-                } else {
-                    SmsMessageEnvelope(
-                        sender = sender,
-                        body = body,
-                        receivedAt = sorted
-                            .firstOrNull { it.timestampMillis > 0L }
-                            ?.timestampMillis
-                            ?.let(Instant::ofEpochMilli)
-                            ?: fallbackReceivedAt,
-                    )
-                }
+                val receivedAt = sorted
+                    .firstOrNull { it.timestampMillis > 0L }
+                    ?.timestampMillis
+                    ?.let(Instant::ofEpochMilli)
+                    ?: fallbackReceivedAt
+
+                SmsEnvelopeSanitizer.sanitize(
+                    sender = sender,
+                    body = body,
+                    receivedAt = receivedAt,
+                )
             }
     }
 

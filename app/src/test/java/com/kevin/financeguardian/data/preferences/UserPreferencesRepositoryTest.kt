@@ -23,6 +23,7 @@ class UserPreferencesRepositoryTest {
         assertEquals(
             UserPreferences(
                 appLockEnabled = true,
+                screenPrivacyEnabled = false,
                 debugParserModeEnabled = false,
                 onboardingCompleted = false,
             ),
@@ -37,6 +38,15 @@ class UserPreferencesRepositoryTest {
         repository.setAppLockEnabled(false)
 
         assertEquals(false, repository.preferences.first().appLockEnabled)
+    }
+
+    @Test
+    fun setScreenPrivacyEnabledPersists() = runTest {
+        val repository = repository("screen-privacy.preferences_pb")
+
+        repository.setScreenPrivacyEnabled(true)
+
+        assertEquals(true, repository.preferences.first().screenPrivacyEnabled)
     }
 
     @Test

@@ -1,6 +1,5 @@
 package com.kevin.financeguardian.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,8 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,7 +19,7 @@ import com.kevin.financeguardian.ui.theme.spacing
 
 /**
  * A single transaction list item showing category icon, merchant info,
- * amount, and an optional left accent border for unknown-category items.
+ * amount, and a subtle warning tint for unknown-category items.
  */
 @Composable
 fun TransactionRow(
@@ -38,18 +37,20 @@ fun TransactionRow(
     val ext = MaterialTheme.extendedColors
     val spacing = MaterialTheme.spacing
 
-    OutlinedCard(
+    ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = MaterialTheme.shapes.medium,
-        border = if (isUnknownCategory) {
-            BorderStroke(2.dp, ext.warning)
-        } else {
-            CardDefaults.outlinedCardBorder()
-        },
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = if (isUnknownCategory) 2.dp else 1.dp,
+        ),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = if (isUnknownCategory) {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            },
         ),
     ) {
         Row(
@@ -71,12 +72,24 @@ fun TransactionRow(
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                 )
-                Text(
-                    text = "$categoryName · $timestamp",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (isUnknownCategory) {
+                        Text(
+                            text = "⚠",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Text(
+                        text = "$categoryName · $timestamp",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isUnknownCategory) ext.warning
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
             }
 
             Column(

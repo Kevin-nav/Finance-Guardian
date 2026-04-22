@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Sms
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -32,22 +33,22 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kevin.financeguardian.ui.theme.extendedColors
 import com.kevin.financeguardian.ui.theme.spacing
 
 @Composable
-fun SettingsRoute(modifier: Modifier = Modifier) {
+fun SettingsRoute(
+    modifier: Modifier = Modifier,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val spacing = MaterialTheme.spacing
     val extColors = MaterialTheme.extendedColors
-
-    var appLockEnabled by remember { mutableStateOf(true) }
-    var debugParserEnabled by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -70,8 +71,21 @@ fun SettingsRoute(modifier: Modifier = Modifier) {
                 icon = Icons.Filled.Fingerprint,
                 title = "App Lock",
                 subtitle = "Require biometric or PIN to open app",
-                checked = appLockEnabled,
-                onCheckedChange = { appLockEnabled = it },
+                checked = uiState.appLockEnabled,
+                onCheckedChange = viewModel::setAppLockEnabled,
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = spacing.xxs),
+                color = MaterialTheme.colorScheme.outlineVariant,
+            )
+
+            SettingsToggleRow(
+                icon = Icons.Filled.VisibilityOff,
+                title = "Screen Privacy",
+                subtitle = "Hide app content in screenshots and Recents",
+                checked = uiState.screenPrivacyEnabled,
+                onCheckedChange = viewModel::setScreenPrivacyEnabled,
             )
         }
 
@@ -80,7 +94,7 @@ fun SettingsRoute(modifier: Modifier = Modifier) {
             SettingsStatusRow(
                 icon = Icons.Filled.Sms,
                 title = "SMS Access",
-                isGranted = false, // Preview: not granted
+                isGranted = uiState.permissions.receiveSmsGranted,
             )
 
             HorizontalDivider(
@@ -91,7 +105,7 @@ fun SettingsRoute(modifier: Modifier = Modifier) {
             SettingsStatusRow(
                 icon = Icons.Filled.Notifications,
                 title = "Notifications",
-                isGranted = true, // Preview: granted
+                isGranted = uiState.permissions.postNotificationsGranted,
             )
         }
 
@@ -101,8 +115,8 @@ fun SettingsRoute(modifier: Modifier = Modifier) {
                 icon = Icons.Filled.FileDownload,
                 title = "Parser Debug Mode",
                 subtitle = "Enable fixture SMS import for testing",
-                checked = debugParserEnabled,
-                onCheckedChange = { debugParserEnabled = it },
+                checked = uiState.debugParserModeEnabled,
+                onCheckedChange = viewModel::setDebugParserModeEnabled,
             )
 
             HorizontalDivider(

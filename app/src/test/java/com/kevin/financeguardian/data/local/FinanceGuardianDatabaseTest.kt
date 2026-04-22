@@ -4,6 +4,7 @@ import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
+import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.local.entity.CategoryEntity
 import com.kevin.financeguardian.data.local.entity.MerchantEntity
 import com.kevin.financeguardian.data.local.entity.SmsMessageRecordEntity
@@ -47,11 +48,34 @@ class FinanceGuardianDatabaseTest {
 
     @Test
     fun seedIfEmptyInsertsDefaultCategories() = runTest {
-        DefaultCategorySeeder(database.categoryDao()).seedIfEmpty()
+        DefaultCategorySeeder(database.categoryDao(), FixedClock()).seedIfEmpty()
 
         val ids = database.categoryDao().getAllOnce().map { it.id }.toSet()
 
         assertEquals(DefaultCategories.values.map { it.id }.toSet(), ids)
+    }
+
+    @Test
+    fun seedIfEmptyBackfillsMissingDefaultCategoriesWhenSomeCategoriesExist() = runTest {
+        val now = Instant.parse("2026-04-21T12:00:00Z")
+        database.categoryDao().upsertAll(
+            listOf(
+                CategoryEntity(
+                    id = "custom",
+                    name = "Custom",
+                    type = CategoryType.EXPENSE,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            ),
+        )
+
+        DefaultCategorySeeder(database.categoryDao(), FixedClock(now.plusSeconds(60))).seedIfEmpty()
+
+        val categories = database.categoryDao().getAllOnce()
+        val ids = categories.map { it.id }.toSet()
+        assertTrue(ids.contains("custom"))
+        assertTrue(ids.containsAll(DefaultCategories.values.map { it.id }))
     }
 
     @Test
@@ -115,7 +139,7 @@ class FinanceGuardianDatabaseTest {
 
     @Test
     fun seedingTwiceDoesNotDuplicateCategories() = runTest {
-        val seeder = DefaultCategorySeeder(database.categoryDao())
+        val seeder = DefaultCategorySeeder(database.categoryDao(), FixedClock())
 
         seeder.seedIfEmpty()
         seeder.seedIfEmpty()
@@ -183,5 +207,11 @@ class FinanceGuardianDatabaseTest {
             parseStatus = ParseStatus.PARSED,
             parseReason = null,
         )
+    }
+
+    private class FixedClock(
+        private val instant: Instant = Instant.parse("2026-04-21T12:00:00Z"),
+    ) : AppClock {
+        override fun now(): Instant = instant
     }
 }

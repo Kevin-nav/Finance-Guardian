@@ -1,7 +1,10 @@
 package com.kevin.financeguardian.data.sms
 
+import android.database.sqlite.SQLiteConstraintException
+import androidx.room.withTransaction
 import com.kevin.financeguardian.core.id.IdGenerator
 import com.kevin.financeguardian.core.time.AppClock
+import com.kevin.financeguardian.data.local.FinanceGuardianDatabase
 import com.kevin.financeguardian.data.local.dao.SmsMessageRecordDao
 import com.kevin.financeguardian.data.local.dao.TransactionDao
 import com.kevin.financeguardian.data.local.entity.SmsMessageRecordEntity
@@ -11,9 +14,11 @@ import com.kevin.financeguardian.domain.model.ParseStatus
 import com.kevin.financeguardian.domain.parser.SmsParseInput
 import com.kevin.financeguardian.domain.parser.SmsParseResult
 import com.kevin.financeguardian.domain.parser.SmsTransactionParser
+import java.time.Instant
 import javax.inject.Inject
 
 class SmsIngestionService @Inject constructor(
+    private val database: FinanceGuardianDatabase,
     private val smsMessageRecordDao: SmsMessageRecordDao,
     private val transactionDao: TransactionDao,
     private val parser: SmsTransactionParser,
@@ -32,29 +37,40 @@ class SmsIngestionService @Inject constructor(
             return SmsIngestionResult.Duplicate(duplicate.id)
         }
 
-        return when (
-            val result = parser.parse(
-                SmsParseInput(
-                    sender = envelope.sender,
-                    body = envelope.body,
-                    receivedAt = envelope.receivedAt,
-                ),
-            )
-        ) {
-            is SmsParseResult.Parsed -> persistParsed(envelope, bodyHash, result)
-            is SmsParseResult.Ignored -> persistNonParsed(
-                envelope = envelope,
-                bodyHash = bodyHash,
-                status = ParseStatus.IGNORED,
-                reason = result.reason,
-            )
+        val result = parser.parse(
+            SmsParseInput(
+                sender = envelope.sender,
+                body = envelope.body,
+                receivedAt = envelope.receivedAt,
+            ),
+        )
 
-            is SmsParseResult.Failed -> persistNonParsed(
-                envelope = envelope,
+        return database.withTransaction {
+            val transactionDuplicate = smsMessageRecordDao.findDuplicate(
+                sender = envelope.sender,
                 bodyHash = bodyHash,
-                status = ParseStatus.FAILED,
-                reason = result.reason,
+                receivedAt = envelope.receivedAt,
             )
+            if (transactionDuplicate != null) {
+                SmsIngestionResult.Duplicate(transactionDuplicate.id)
+            } else {
+                when (result) {
+                    is SmsParseResult.Parsed -> persistParsed(envelope, bodyHash, result)
+                    is SmsParseResult.Ignored -> persistNonParsed(
+                        envelope = envelope,
+                        bodyHash = bodyHash,
+                        status = ParseStatus.IGNORED,
+                        reason = result.reason,
+                    )
+
+                    is SmsParseResult.Failed -> persistNonParsed(
+                        envelope = envelope,
+                        bodyHash = bodyHash,
+                        status = ParseStatus.FAILED,
+                        reason = result.reason,
+                    )
+                }
+            }
         }
     }
 
@@ -62,13 +78,13 @@ class SmsIngestionService @Inject constructor(
         envelope: SmsMessageEnvelope,
         bodyHash: String,
         result: SmsParseResult.Parsed,
-    ): SmsIngestionResult.Parsed {
+    ): SmsIngestionResult {
         val now = clock.now()
         val smsRecordId = idGenerator.newId()
         val transactionId = idGenerator.newId()
 
-        smsMessageRecordDao.insert(
-            SmsMessageRecordEntity(
+        val duplicateId = insertSmsRecordOrDuplicate(
+            entity = SmsMessageRecordEntity(
                 id = smsRecordId,
                 sender = envelope.sender,
                 bodyHash = bodyHash,
@@ -77,7 +93,11 @@ class SmsIngestionService @Inject constructor(
                 parseStatus = ParseStatus.PARSED,
                 parseReason = null,
             ),
+            sender = envelope.sender,
+            bodyHash = bodyHash,
+            receivedAt = envelope.receivedAt,
         )
+        if (duplicateId != null) return SmsIngestionResult.Duplicate(duplicateId)
 
         val parsed = result.transaction
         val categoryId = merchantCategoryResolver.resolveForParsedTransaction(
@@ -119,8 +139,8 @@ class SmsIngestionService @Inject constructor(
         reason: String,
     ): SmsIngestionResult {
         val smsRecordId = idGenerator.newId()
-        smsMessageRecordDao.insert(
-            SmsMessageRecordEntity(
+        val duplicateId = insertSmsRecordOrDuplicate(
+            entity = SmsMessageRecordEntity(
                 id = smsRecordId,
                 sender = envelope.sender,
                 bodyHash = bodyHash,
@@ -129,12 +149,36 @@ class SmsIngestionService @Inject constructor(
                 parseStatus = status,
                 parseReason = reason,
             ),
+            sender = envelope.sender,
+            bodyHash = bodyHash,
+            receivedAt = envelope.receivedAt,
         )
+        if (duplicateId != null) return SmsIngestionResult.Duplicate(duplicateId)
 
         return when (status) {
             ParseStatus.IGNORED -> SmsIngestionResult.Ignored(smsRecordId, reason)
             ParseStatus.FAILED -> SmsIngestionResult.Failed(smsRecordId, reason)
             else -> error("Unsupported non-parsed status: $status")
+        }
+    }
+
+    private suspend fun insertSmsRecordOrDuplicate(
+        entity: SmsMessageRecordEntity,
+        sender: String,
+        bodyHash: String,
+        receivedAt: Instant,
+    ): String? {
+        try {
+            smsMessageRecordDao.insert(entity)
+            return null
+        } catch (error: SQLiteConstraintException) {
+            val duplicate = smsMessageRecordDao.findDuplicate(
+                sender = sender,
+                bodyHash = bodyHash,
+                receivedAt = receivedAt,
+            )
+            if (duplicate != null) return duplicate.id
+            throw error
         }
     }
 }

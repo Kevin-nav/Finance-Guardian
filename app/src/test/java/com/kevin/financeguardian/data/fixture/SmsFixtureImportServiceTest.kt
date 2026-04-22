@@ -112,6 +112,7 @@ class SmsFixtureImportServiceTest {
     private fun service(ids: List<String>): SmsFixtureImportService {
         val idGenerator = FakeIdGenerator(ids)
         val ingestionService = SmsIngestionService(
+            database = database,
             smsMessageRecordDao = database.smsMessageRecordDao(),
             transactionDao = database.transactionDao(),
             parser = FinanceGuardianSmsParser(),

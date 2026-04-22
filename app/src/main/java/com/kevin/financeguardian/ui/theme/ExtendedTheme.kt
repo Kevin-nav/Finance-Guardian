@@ -22,8 +22,8 @@ data class ExtendedColorScheme(
     val warning: Color,
     val warningContainer: Color,
     val unknown: Color,
-    val balanceGradientStart: Color,
-    val balanceGradientEnd: Color,
+    val balanceCardBackground: Color,
+    val onBalanceCard: Color,
 )
 
 val LightExtendedColors = ExtendedColorScheme(
@@ -38,8 +38,8 @@ val LightExtendedColors = ExtendedColorScheme(
     warning = WarningLight,
     warningContainer = WarningContainerLight,
     unknown = UnknownLight,
-    balanceGradientStart = BalanceGradientStartLight,
-    balanceGradientEnd = BalanceGradientEndLight,
+    balanceCardBackground = BalanceCardBackgroundLight,
+    onBalanceCard = OnBalanceCardLight,
 )
 
 val DarkExtendedColors = ExtendedColorScheme(
@@ -54,8 +54,8 @@ val DarkExtendedColors = ExtendedColorScheme(
     warning = WarningDark,
     warningContainer = WarningContainerDark,
     unknown = UnknownDark,
-    balanceGradientStart = BalanceGradientStartDark,
-    balanceGradientEnd = BalanceGradientEndDark,
+    balanceCardBackground = BalanceCardBackgroundDark,
+    onBalanceCard = OnBalanceCardDark,
 )
 
 val LocalExtendedColors = staticCompositionLocalOf { LightExtendedColors }

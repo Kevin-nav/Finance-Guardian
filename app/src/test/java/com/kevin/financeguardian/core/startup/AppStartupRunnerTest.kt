@@ -2,9 +2,11 @@ package com.kevin.financeguardian.core.startup
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.local.DefaultCategorySeeder
 import com.kevin.financeguardian.data.local.FinanceGuardianDatabase
 import com.kevin.financeguardian.domain.model.DefaultCategories
+import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -27,7 +29,7 @@ class AppStartupRunnerTest {
             .allowMainThreadQueries()
             .build()
 
-        runner = AppStartupRunner(DefaultCategorySeeder(database.categoryDao()))
+        runner = AppStartupRunner(DefaultCategorySeeder(database.categoryDao(), FixedClock()))
     }
 
     @After
@@ -52,5 +54,9 @@ class AppStartupRunnerTest {
         val categories = database.categoryDao().getAllOnce()
 
         assertEquals(DefaultCategories.values.size, categories.size)
+    }
+
+    private class FixedClock : AppClock {
+        override fun now(): Instant = Instant.parse("2026-04-21T12:00:00Z")
     }
 }

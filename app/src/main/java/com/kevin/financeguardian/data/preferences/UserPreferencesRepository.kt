@@ -14,6 +14,7 @@ class UserPreferencesRepository @Inject constructor(
     val preferences: Flow<UserPreferences> = dataStore.data.map { values ->
         UserPreferences(
             appLockEnabled = values[APP_LOCK_ENABLED] ?: true,
+            screenPrivacyEnabled = values[SCREEN_PRIVACY_ENABLED] ?: false,
             debugParserModeEnabled = values[DEBUG_PARSER_MODE_ENABLED] ?: false,
             onboardingCompleted = values[ONBOARDING_COMPLETED] ?: false,
         )
@@ -21,6 +22,10 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun setAppLockEnabled(enabled: Boolean) {
         dataStore.edit { values -> values[APP_LOCK_ENABLED] = enabled }
+    }
+
+    suspend fun setScreenPrivacyEnabled(enabled: Boolean) {
+        dataStore.edit { values -> values[SCREEN_PRIVACY_ENABLED] = enabled }
     }
 
     suspend fun setDebugParserModeEnabled(enabled: Boolean) {
@@ -33,6 +38,7 @@ class UserPreferencesRepository @Inject constructor(
 
     private companion object {
         val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
+        val SCREEN_PRIVACY_ENABLED = booleanPreferencesKey("screen_privacy_enabled")
         val DEBUG_PARSER_MODE_ENABLED = booleanPreferencesKey("debug_parser_mode_enabled")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     }

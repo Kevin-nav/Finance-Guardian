@@ -1,5 +1,6 @@
 package com.kevin.financeguardian.data.fixture
 
+import com.kevin.financeguardian.data.sms.SmsEnvelopeSanitizer
 import com.kevin.financeguardian.domain.model.Provider
 import java.time.Instant
 import org.json.JSONArray
@@ -31,8 +32,18 @@ object SmsFixtureJsonParser {
                 throw SmsFixtureParseException("$label has invalid provider: $raw")
             }
         }
-        val sender = requiredString(obj, "sender", label)
-        val body = requiredString(obj, "body", label)
+        val sender = requiredString(
+            obj = obj,
+            field = "sender",
+            label = label,
+            maxLength = SmsEnvelopeSanitizer.MAX_SENDER_CHARS,
+        )
+        val body = requiredString(
+            obj = obj,
+            field = "body",
+            label = label,
+            maxLength = SmsEnvelopeSanitizer.MAX_BODY_CHARS,
+        )
         val receivedAt = requiredString(obj, "receivedAt", label).let { raw ->
             runCatching { Instant.parse(raw) }.getOrElse {
                 throw SmsFixtureParseException("$label has invalid receivedAt: $raw")
@@ -41,9 +52,17 @@ object SmsFixtureJsonParser {
         return SmsFixture(provider, sender, body, receivedAt)
     }
 
-    private fun requiredString(obj: JSONObject, field: String, label: String): String {
+    private fun requiredString(
+        obj: JSONObject,
+        field: String,
+        label: String,
+        maxLength: Int? = null,
+    ): String {
         val value = obj.optString(field).trim()
         if (value.isBlank()) throw SmsFixtureParseException("$label missing required field: $field")
+        if (maxLength != null && value.length > maxLength) {
+            throw SmsFixtureParseException("$label field too long: $field")
+        }
         return value
     }
 }

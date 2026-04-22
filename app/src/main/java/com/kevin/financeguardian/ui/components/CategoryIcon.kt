@@ -9,14 +9,14 @@ import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.FamilyRestroom
-import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.LocalLaundryService
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -75,9 +75,9 @@ private fun categoryVisual(categoryName: String): Pair<ImageVector, Color> {
         "laundry" -> Icons.Filled.LocalLaundryService to Color(0xFF1ABC9C)
         "family" -> Icons.Filled.FamilyRestroom to Color(0xFFE91E63)
         "transfers" -> Icons.Filled.SwapHoriz to ext.transfer
-        "income" -> Icons.Filled.TrendingUp to ext.income
+        "income" -> Icons.AutoMirrored.Filled.TrendingUp to ext.income
         "savings" -> Icons.Filled.Savings to primary
-        "unknown" -> Icons.Filled.HelpOutline to ext.unknown
+        "unknown" -> Icons.AutoMirrored.Filled.HelpOutline to ext.unknown
         else -> Icons.Filled.Category to MaterialTheme.colorScheme.secondary
     }
 }

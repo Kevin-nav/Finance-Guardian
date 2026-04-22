@@ -1,5 +1,6 @@
 package com.kevin.financeguardian.data.fixture
 
+import com.kevin.financeguardian.data.sms.SmsEnvelopeSanitizer
 import com.kevin.financeguardian.domain.model.Provider
 import java.time.Instant
 import org.junit.Assert.assertEquals
@@ -98,6 +99,22 @@ class SmsFixtureJsonParserTest {
         )
 
         assertTrue(error.message.orEmpty().contains("invalid receivedAt"))
+    }
+
+    @Test
+    fun oversizedSmsFieldThrowsClearException() {
+        val error = assertFixtureError(
+            """
+            {
+              "provider": "MTN_MOMO",
+              "sender": "MobileMoney",
+              "body": "${"A".repeat(SmsEnvelopeSanitizer.MAX_BODY_CHARS + 1)}",
+              "receivedAt": "2026-04-21T18:00:00Z"
+            }
+            """.trimIndent(),
+        )
+
+        assertTrue(error.message.orEmpty().contains("field too long: body"))
     }
 
     private fun assertFixtureError(json: String): SmsFixtureParseException {

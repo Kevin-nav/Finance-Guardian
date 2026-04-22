@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.kevin.financeguardian.ui.theme.MoneyTypography
+import com.kevin.financeguardian.ui.theme.extendedColors
 
 /**
  * Small pill-shaped stat indicator used in the balance card.
@@ -30,10 +31,12 @@ fun StatPill(
     modifier: Modifier = Modifier,
     currency: String = "GHS",
 ) {
+    val ext = MaterialTheme.extendedColors
+
     Row(
         modifier = modifier
             .clip(MaterialTheme.shapes.small)
-            .background(Color.White.copy(alpha = 0.15f))
+            .background(ext.onBalanceCard.copy(alpha = 0.15f))
             .padding(horizontal = 10.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -47,13 +50,13 @@ fun StatPill(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.7f),
+            color = ext.onBalanceCard.copy(alpha = 0.7f),
         )
         MoneyText(
             amountMinor = amountMinor,
             currency = currency,
             style = MoneyTypography.small.copy(fontSize = MaterialTheme.typography.labelSmall.fontSize),
-            overrideColor = Color.White,
+            overrideColor = ext.onBalanceCard,
         )
     }
 }

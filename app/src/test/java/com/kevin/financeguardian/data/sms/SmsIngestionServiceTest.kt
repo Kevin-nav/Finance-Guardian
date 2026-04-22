@@ -1,11 +1,13 @@
 package com.kevin.financeguardian.data.sms
 
+import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.kevin.financeguardian.core.id.IdGenerator
 import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.local.FinanceGuardianDatabase
 import com.kevin.financeguardian.data.local.entity.MerchantEntity
+import com.kevin.financeguardian.data.local.entity.TransactionEntity
 import com.kevin.financeguardian.data.merchant.MerchantCategoryResolver
 import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.ParseStatus
@@ -22,6 +24,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -160,6 +163,7 @@ class SmsIngestionServiceTest {
 
         val duplicateParser = RecordingParser(parsedResult())
         val duplicateService = SmsIngestionService(
+            database = database,
             smsMessageRecordDao = database.smsMessageRecordDao(),
             transactionDao = database.transactionDao(),
             parser = duplicateParser,
@@ -178,12 +182,35 @@ class SmsIngestionServiceTest {
         assertTrue(database.transactionDao().getById("transaction-1") != null)
     }
 
+    @Test
+    fun parsedSmsRollsBackSmsRecordAndMerchantWhenTransactionInsertFails() = runTest {
+        database.transactionDao().insert(
+            sampleTransaction(id = "existing-transaction", sourceMessageId = "sms-1"),
+        )
+        val service = service(
+            parserResult = parsedResult(),
+            ids = listOf("sms-1", "transaction-2", "merchant-1"),
+        )
+
+        try {
+            service.ingest(envelope)
+            fail("Expected transaction unique constraint failure")
+        } catch (expected: SQLiteConstraintException) {
+            assertTrue(expected.message.orEmpty().isNotBlank())
+        }
+
+        val bodyHash = BodyHasher.sha256Hex(envelope.body)
+        assertNull(database.smsMessageRecordDao().findDuplicate(envelope.sender, bodyHash, receivedAt))
+        assertNull(database.merchantDao().findByNormalizedName("sample sender"))
+    }
+
     private fun service(
         parserResult: SmsParseResult,
         ids: List<String>,
     ): SmsIngestionService {
         val idGenerator = FakeIdGenerator(ids)
         return SmsIngestionService(
+            database = database,
             smsMessageRecordDao = database.smsMessageRecordDao(),
             transactionDao = database.transactionDao(),
             parser = RecordingParser(parserResult),
@@ -233,6 +260,31 @@ class SmsIngestionServiceTest {
                 balanceAfterMinor = 53801,
             ),
             confidence = 0.9f,
+        )
+
+    private fun sampleTransaction(
+        id: String,
+        sourceMessageId: String?,
+    ): TransactionEntity =
+        TransactionEntity(
+            id = id,
+            sourceMessageId = sourceMessageId,
+            provider = Provider.MTN_MOMO,
+            rawSender = envelope.sender,
+            rawBodyHash = "existing-hash",
+            occurredAt = receivedAt,
+            direction = TransactionDirection.CREDIT,
+            moneyMovementType = MoneyMovementType.INCOME,
+            amountMinor = 7700,
+            currency = "GHS",
+            counterpartyName = "Existing Sender",
+            counterpartyPhone = null,
+            reference = "R",
+            balanceAfterMinor = 53801,
+            categoryId = null,
+            confidence = 0.9f,
+            createdAt = processedAt,
+            updatedAt = processedAt,
         )
 
     private class RecordingParser(

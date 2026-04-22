@@ -114,9 +114,9 @@ val WarningContainerDark = Color(0xFF5C4100)
 val UnknownLight = Color(0xFF71787E)
 val UnknownDark = Color(0xFF8B9198)
 
-// ── Balance Card Gradient ───────────────────────────────────────────────────
+// ── Balance Card ────────────────────────────────────────────────────────────
 
-val BalanceGradientStartLight = Color(0xFF006590)
-val BalanceGradientEndLight = Color(0xFF0088CC)
-val BalanceGradientStartDark = Color(0xFF004C6E)
-val BalanceGradientEndDark = Color(0xFF006590)
+val BalanceCardBackgroundLight = Color(0xFF006590)
+val OnBalanceCardLight = Color(0xFFFFFFFF)
+val BalanceCardBackgroundDark = Color(0xFF004C6E)
+val OnBalanceCardDark = Color(0xFFE0F0FF)
