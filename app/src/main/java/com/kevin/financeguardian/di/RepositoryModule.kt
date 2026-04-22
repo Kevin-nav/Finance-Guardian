@@ -2,6 +2,8 @@ package com.kevin.financeguardian.di
 
 import com.kevin.financeguardian.data.repository.RoomTransactionRepository
 import com.kevin.financeguardian.data.repository.TransactionRepository
+import com.kevin.financeguardian.data.transaction.TransactionCorrectionApplier
+import com.kevin.financeguardian.data.transaction.TransactionCorrectionService
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -16,4 +18,9 @@ abstract class RepositoryModule {
     abstract fun bindTransactionRepository(
         repository: RoomTransactionRepository,
     ): TransactionRepository
+
+    @Binds
+    abstract fun bindTransactionCorrectionApplier(
+        service: TransactionCorrectionService,
+    ): TransactionCorrectionApplier
 }

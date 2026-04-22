@@ -14,8 +14,8 @@ class TransactionCorrectionService @Inject constructor(
     private val merchantDao: MerchantDao,
     private val idGenerator: IdGenerator,
     private val clock: AppClock,
-) {
-    suspend fun applyCorrection(
+) : TransactionCorrectionApplier {
+    override suspend fun applyCorrection(
         transactionId: String,
         categoryId: String?,
         moneyMovementType: MoneyMovementType?,
