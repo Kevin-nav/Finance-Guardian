@@ -1,6 +1,7 @@
 package com.kevin.financeguardian
 
 import android.app.Application
+import com.kevin.financeguardian.core.notifications.AndroidNotificationChannels
 import com.kevin.financeguardian.core.startup.AppStartupRunner
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -16,6 +17,7 @@ class FinanceGuardianApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AndroidNotificationChannels.create(this)
         appStartupRunner.launch(applicationScope)
     }
 }
