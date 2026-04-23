@@ -2,8 +2,13 @@ package com.kevin.financeguardian.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kevin.financeguardian.core.notifications.InAppNoticeManager
+import com.kevin.financeguardian.core.notifications.InAppNoticeSeverity
+import com.kevin.financeguardian.core.notifications.NotificationDispatcher
+import com.kevin.financeguardian.core.notifications.NotificationEvent
 import com.kevin.financeguardian.core.permissions.AppPermissionStatuses
 import com.kevin.financeguardian.core.permissions.PermissionStatusChecker
+import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.fixture.SmsFixtureImportResult
 import com.kevin.financeguardian.data.fixture.SmsFixtureImporter
 import com.kevin.financeguardian.data.local.AppDataResetter
@@ -24,24 +29,27 @@ class SettingsViewModel @Inject constructor(
     private val permissionStatusChecker: PermissionStatusChecker,
     private val appDataResetter: AppDataResetter,
     private val smsFixtureImporter: SmsFixtureImporter,
+    private val notificationDispatcher: NotificationDispatcher,
+    private val noticeManager: InAppNoticeManager,
+    private val clock: AppClock,
 ) : ViewModel() {
-    private val permissionRefreshes = MutableStateFlow(0)
+    private val permissionStatuses = MutableStateFlow(permissionStatusChecker.currentStatuses())
     private val resetInProgress = MutableStateFlow(false)
-    private val dataActionMessage = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<SettingsUiState> = combine(
         userPreferencesRepository.preferences,
-        permissionRefreshes,
+        permissionStatuses,
         resetInProgress,
-        dataActionMessage,
-    ) { preferences, _, isResetting, message ->
+    ) { preferences, permissions, isResetting ->
             SettingsUiState(
                 appLockEnabled = preferences.appLockEnabled,
                 screenPrivacyEnabled = preferences.screenPrivacyEnabled,
                 debugParserModeEnabled = preferences.debugParserModeEnabled,
-                permissions = permissionStatusChecker.currentStatuses(),
+                notificationsEnabled = preferences.notificationsEnabled,
+                proactiveInsightsEnabled = preferences.proactiveInsightsEnabled,
+                showAmountsOnLockScreen = preferences.showAmountsOnLockScreen,
+                permissions = permissions,
                 isResetInProgress = isResetting,
-                dataActionMessage = message,
             )
         }
         .stateIn(
@@ -51,40 +59,135 @@ class SettingsViewModel @Inject constructor(
         )
 
     fun setAppLockEnabled(enabled: Boolean) {
-        viewModelScope.launch { userPreferencesRepository.setAppLockEnabled(enabled) }
+        viewModelScope.launch {
+            userPreferencesRepository.setAppLockEnabled(enabled)
+            if (!enabled) {
+                notificationDispatcher.dispatch(
+                    NotificationEvent.SecurityStateChanged(
+                        state = NotificationEvent.SecurityState.AppLock,
+                        enabled = false,
+                        occurredAt = clock.now(),
+                    ),
+                )
+            }
+        }
     }
 
     fun setScreenPrivacyEnabled(enabled: Boolean) {
-        viewModelScope.launch { userPreferencesRepository.setScreenPrivacyEnabled(enabled) }
+        viewModelScope.launch {
+            userPreferencesRepository.setScreenPrivacyEnabled(enabled)
+            if (!enabled) {
+                notificationDispatcher.dispatch(
+                    NotificationEvent.SecurityStateChanged(
+                        state = NotificationEvent.SecurityState.ScreenPrivacy,
+                        enabled = false,
+                        occurredAt = clock.now(),
+                    ),
+                )
+            }
+        }
     }
 
     fun setDebugParserModeEnabled(enabled: Boolean) {
         viewModelScope.launch { userPreferencesRepository.setDebugParserModeEnabled(enabled) }
     }
 
+    fun setNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setNotificationsEnabled(enabled) }
+    }
+
+    fun setProactiveInsightsEnabled(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setProactiveInsightsEnabled(enabled) }
+    }
+
+    fun setShowAmountsOnLockScreen(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setShowAmountsOnLockScreen(enabled) }
+    }
+
     fun refreshPermissions() {
-        permissionRefreshes.value += 1
+        viewModelScope.launch {
+            val previous = permissionStatuses.value
+            val current = permissionStatusChecker.currentStatuses()
+            permissionStatuses.value = current
+            emitPermissionChangeEvents(
+                previous = previous,
+                current = current,
+            )
+        }
     }
 
     fun resetAllData() {
         viewModelScope.launch {
             resetInProgress.value = true
-            dataActionMessage.value = null
             runCatching { appDataResetter.resetAllData() }
-                .onSuccess { dataActionMessage.value = "App data reset. Default categories restored." }
-                .onFailure { dataActionMessage.value = it.message ?: "Data reset failed." }
+                .onSuccess {
+                    noticeManager.showMessage(
+                        message = "App data reset. Default categories restored.",
+                        severity = InAppNoticeSeverity.Success,
+                    )
+                }
+                .onFailure {
+                    noticeManager.showMessage(
+                        message = it.message ?: "Data reset failed.",
+                        severity = InAppNoticeSeverity.Error,
+                    )
+                }
             resetInProgress.value = false
         }
     }
 
     fun importFixtureJson(json: String) {
         viewModelScope.launch {
-            dataActionMessage.value = null
             runCatching { smsFixtureImporter.importJson(json) }
                 .onSuccess { results ->
-                    dataActionMessage.value = results.toImportSummary()
+                    noticeManager.showMessage(
+                        message = results.toImportSummary(),
+                        severity = InAppNoticeSeverity.Success,
+                    )
                 }
-                .onFailure { dataActionMessage.value = it.message ?: "Fixture import failed." }
+                .onFailure {
+                    noticeManager.showMessage(
+                        message = it.message ?: "Fixture import failed.",
+                        severity = InAppNoticeSeverity.Error,
+                    )
+                }
+        }
+    }
+
+    private suspend fun emitPermissionChangeEvents(
+        previous: AppPermissionStatuses,
+        current: AppPermissionStatuses,
+    ) {
+        if (!previous.receiveSmsGranted && current.receiveSmsGranted) {
+            notificationDispatcher.dispatch(
+                NotificationEvent.PermissionGranted(
+                    permission = NotificationEvent.Permission.Sms,
+                    occurredAt = clock.now(),
+                ),
+            )
+        } else if (previous.receiveSmsGranted && !current.receiveSmsGranted) {
+            notificationDispatcher.dispatch(
+                NotificationEvent.PermissionRevoked(
+                    permission = NotificationEvent.Permission.Sms,
+                    occurredAt = clock.now(),
+                ),
+            )
+        }
+
+        if (!previous.postNotificationsGranted && current.postNotificationsGranted) {
+            notificationDispatcher.dispatch(
+                NotificationEvent.PermissionGranted(
+                    permission = NotificationEvent.Permission.Notifications,
+                    occurredAt = clock.now(),
+                ),
+            )
+        } else if (previous.postNotificationsGranted && !current.postNotificationsGranted) {
+            notificationDispatcher.dispatch(
+                NotificationEvent.PermissionRevoked(
+                    permission = NotificationEvent.Permission.Notifications,
+                    occurredAt = clock.now(),
+                ),
+            )
         }
     }
 
@@ -101,10 +204,12 @@ data class SettingsUiState(
     val appLockEnabled: Boolean = true,
     val screenPrivacyEnabled: Boolean = false,
     val debugParserModeEnabled: Boolean = false,
+    val notificationsEnabled: Boolean = true,
+    val proactiveInsightsEnabled: Boolean = true,
+    val showAmountsOnLockScreen: Boolean = true,
     val permissions: AppPermissionStatuses = AppPermissionStatuses(
         receiveSmsGranted = false,
         postNotificationsGranted = false,
     ),
     val isResetInProgress: Boolean = false,
-    val dataActionMessage: String? = null,
 )

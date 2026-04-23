@@ -3,6 +3,7 @@ package com.kevin.financeguardian.data.sms
 import android.database.sqlite.SQLiteConstraintException
 import androidx.room.withTransaction
 import com.kevin.financeguardian.core.id.IdGenerator
+import com.kevin.financeguardian.core.notifications.InsightEvaluator
 import com.kevin.financeguardian.core.notifications.NotificationDispatcher
 import com.kevin.financeguardian.core.notifications.NotificationEvent
 import com.kevin.financeguardian.core.notifications.NoOpNotificationDispatcher
@@ -12,6 +13,7 @@ import com.kevin.financeguardian.data.local.dao.SmsMessageRecordDao
 import com.kevin.financeguardian.data.local.dao.TransactionDao
 import com.kevin.financeguardian.data.local.entity.SmsMessageRecordEntity
 import com.kevin.financeguardian.data.local.entity.TransactionEntity
+import com.kevin.financeguardian.data.local.mapper.toDomain
 import com.kevin.financeguardian.data.merchant.MerchantCategoryResolver
 import com.kevin.financeguardian.domain.model.ParseStatus
 import com.kevin.financeguardian.domain.parser.SmsParseInput
@@ -19,6 +21,7 @@ import com.kevin.financeguardian.domain.parser.SmsParseResult
 import com.kevin.financeguardian.domain.parser.SmsTransactionParser
 import java.time.Instant
 import javax.inject.Inject
+import kotlinx.coroutines.flow.first
 
 class SmsIngestionService @Inject constructor(
     private val database: FinanceGuardianDatabase,
@@ -29,6 +32,7 @@ class SmsIngestionService @Inject constructor(
     private val clock: AppClock,
     private val merchantCategoryResolver: MerchantCategoryResolver,
     private val notificationDispatcher: NotificationDispatcher = NoOpNotificationDispatcher(),
+    private val insightEvaluator: InsightEvaluator = InsightEvaluator(),
 ) {
     suspend fun ingest(envelope: SmsMessageEnvelope): SmsIngestionResult {
         val bodyHash = BodyHasher.sha256Hex(envelope.body)
@@ -86,7 +90,24 @@ class SmsIngestionService @Inject constructor(
             }
         }
         persisted.notificationEvent?.let { notificationDispatcher.dispatch(it) }
+        if (persisted.ingestionResult is SmsIngestionResult.Parsed) {
+            maybeDispatchInsight()
+        }
         return persisted.ingestionResult
+    }
+
+    private suspend fun maybeDispatchInsight() {
+        val insight = insightEvaluator.evaluate(
+            transactions = transactionDao.observeAll().first().map { it.toDomain() },
+            now = clock.now(),
+        ) ?: return
+        notificationDispatcher.dispatch(
+            NotificationEvent.InsightTriggered(
+                insight = insight.kind,
+                summary = insight.summary,
+                occurredAt = clock.now(),
+            ),
+        )
     }
 
     private suspend fun persistParsed(

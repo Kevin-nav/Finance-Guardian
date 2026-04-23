@@ -1,6 +1,7 @@
 package com.kevin.financeguardian.feature.insights
 
 import com.kevin.financeguardian.core.time.AppClock
+import com.kevin.financeguardian.core.notifications.InsightEvaluator
 import com.kevin.financeguardian.data.local.dao.CategoryDao
 import com.kevin.financeguardian.data.local.entity.CategoryEntity
 import com.kevin.financeguardian.data.repository.TransactionRepository
@@ -97,6 +98,26 @@ class InsightsViewModelTest {
         assertEquals(listOf("Big Shop", "Small Shop"), state.largeTransactions.map { it.merchantName })
     }
 
+    @Test
+    fun outgoingBurstAddsHighlightInsight() = runTest {
+        seedCategories()
+        repository.replace(
+            listOf(
+                transaction(id = "history-1", occurredAt = Instant.parse("2026-04-21T10:00:00Z")),
+                transaction(id = "history-2", occurredAt = Instant.parse("2026-04-21T12:00:00Z")),
+                transaction(id = "history-3", occurredAt = Instant.parse("2026-04-22T09:00:00Z")),
+                transaction(id = "today-1", occurredAt = Instant.parse("2026-04-22T23:30:00Z")),
+                transaction(id = "today-2", occurredAt = Instant.parse("2026-04-22T22:30:00Z")),
+                transaction(id = "today-3", occurredAt = Instant.parse("2026-04-22T21:30:00Z")),
+                transaction(id = "today-4", occurredAt = Instant.parse("2026-04-22T20:30:00Z")),
+            ),
+        )
+
+        val state = viewModel().uiState.value
+
+        assertEquals("Spending is higher than usual today", state.highlightInsight?.title)
+    }
+
     private fun seedCategories() {
         categoryDao.replace(
             listOf(
@@ -136,6 +157,7 @@ class InsightsViewModelTest {
         InsightsViewModel(
             transactionRepository = repository,
             categoryDao = categoryDao,
+            insightEvaluator = InsightEvaluator(),
             clock = FixedClock(now),
         )
 

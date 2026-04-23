@@ -1,8 +1,9 @@
 package com.kevin.financeguardian.core.notifications
 
 import java.util.Locale
+import javax.inject.Inject
 
-class NotificationComposer {
+class NotificationComposer @Inject constructor() {
     fun compose(
         event: NotificationEvent,
         decision: NotificationDecision,

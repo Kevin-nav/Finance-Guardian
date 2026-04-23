@@ -99,6 +99,7 @@ fun SettingsRoute(
     var showSection2 by remember { mutableStateOf(false) }
     var showSection3 by remember { mutableStateOf(false) }
     var showSection4 by remember { mutableStateOf(false) }
+    var showSection5 by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         showSection0 = true
@@ -110,6 +111,8 @@ fun SettingsRoute(
         showSection3 = true
         delay(60)
         showSection4 = true
+        delay(60)
+        showSection5 = true
     }
 
     val fixturePicker = rememberLauncherForActivityResult(
@@ -253,6 +256,46 @@ fun SettingsRoute(
 
         // ── Appearance (placeholder) ────────────────────────────────────
         AnimatedSettingsSection(visible = showSection3, index = 3) {
+            SettingsSectionLabel(text = "Notifications & Alerts")
+
+            SettingsGroupCard {
+                SettingsToggleRow(
+                    icon = Icons.Filled.Notifications,
+                    iconTint = MaterialTheme.extendedColors.income,
+                    title = "Notifications",
+                    subtitle = "Allow Finance Guardian to send alerts for important activity",
+                    checked = uiState.notificationsEnabled,
+                    onCheckedChange = viewModel::setNotificationsEnabled,
+                )
+
+                SettingsRowDivider()
+
+                SettingsToggleRow(
+                    icon = Icons.Filled.Info,
+                    iconTint = MaterialTheme.colorScheme.secondary,
+                    title = "Proactive insights",
+                    subtitle = "Send occasional high-signal nudges when spending spikes",
+                    checked = uiState.proactiveInsightsEnabled,
+                    onCheckedChange = viewModel::setProactiveInsightsEnabled,
+                )
+
+                SettingsRowDivider()
+
+                SettingsToggleRow(
+                    icon = Icons.Filled.Lock,
+                    iconTint = MaterialTheme.colorScheme.tertiary,
+                    title = "Show amounts on lock screen",
+                    subtitle = "Keep transaction amounts visible while hiding merchant details",
+                    checked = uiState.showAmountsOnLockScreen,
+                    onCheckedChange = viewModel::setShowAmountsOnLockScreen,
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(spacing.md))
+
+        // ── About ───────────────────────────────────────────────────────
+        AnimatedSettingsSection(visible = showSection4, index = 4) {
             SettingsSectionLabel(text = "Appearance")
 
             SettingsGroupCard {
@@ -267,8 +310,7 @@ fun SettingsRoute(
 
         Spacer(modifier = Modifier.height(spacing.md))
 
-        // ── About ───────────────────────────────────────────────────────
-        AnimatedSettingsSection(visible = showSection4, index = 4) {
+        AnimatedSettingsSection(visible = showSection5, index = 5) {
             SettingsSectionLabel(text = "About")
 
             SettingsGroupCard {
@@ -376,17 +418,6 @@ fun SettingsRoute(
                         onActionClick = { showResetDialog = true },
                     )
 
-                    uiState.dataActionMessage?.let { message ->
-                        Text(
-                            text = message,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(
-                                start = 48.dp,
-                                top = spacing.xs,
-                            ),
-                        )
-                    }
                 }
             }
         }

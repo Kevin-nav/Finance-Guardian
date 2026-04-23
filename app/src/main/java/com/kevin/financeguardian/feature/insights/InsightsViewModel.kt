@@ -2,6 +2,7 @@ package com.kevin.financeguardian.feature.insights
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kevin.financeguardian.core.notifications.InsightEvaluator
 import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.local.dao.CategoryDao
 import com.kevin.financeguardian.data.local.mapper.toDomain
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.stateIn
 class InsightsViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val categoryDao: CategoryDao,
+    private val insightEvaluator: InsightEvaluator,
     private val clock: AppClock,
 ) : ViewModel() {
     val uiState: StateFlow<InsightsUiState> = combine(
@@ -84,6 +86,13 @@ class InsightsViewModel @Inject constructor(
                     date = transaction.occurredAt.formatDate(now),
                 )
             }
+        val highlightInsight = insightEvaluator.evaluate(transactions, now)?.let { insight ->
+            InsightHighlightItem(
+                kind = insight.kind,
+                title = insight.title,
+                summary = insight.summary,
+            )
+        }
 
         return InsightsUiState(
             hasData = transactions.isNotEmpty(),
@@ -92,6 +101,7 @@ class InsightsViewModel @Inject constructor(
             netCashFlowMinor = incomeMinor - spendingMinor,
             categorySpending = categorySpending,
             largeTransactions = largeTransactions,
+            highlightInsight = highlightInsight,
         )
     }
 
@@ -135,6 +145,7 @@ data class InsightsUiState(
     val netCashFlowMinor: Long = 0L,
     val categorySpending: List<CategorySpendingItem> = emptyList(),
     val largeTransactions: List<LargeTransactionItem> = emptyList(),
+    val highlightInsight: InsightHighlightItem? = null,
 )
 
 data class CategorySpendingItem(
@@ -147,4 +158,10 @@ data class LargeTransactionItem(
     val amountMinor: Long,
     val isCredit: Boolean,
     val date: String,
+)
+
+data class InsightHighlightItem(
+    val kind: com.kevin.financeguardian.core.notifications.NotificationEvent.Insight,
+    val title: String,
+    val summary: String,
 )

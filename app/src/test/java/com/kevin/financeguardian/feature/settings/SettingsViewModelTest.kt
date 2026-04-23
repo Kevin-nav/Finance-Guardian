@@ -1,9 +1,14 @@
 package com.kevin.financeguardian.feature.settings
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import com.kevin.financeguardian.core.notifications.InAppNotice
+import com.kevin.financeguardian.core.notifications.InAppNoticeManager
+import com.kevin.financeguardian.core.notifications.NotificationDispatcher
+import com.kevin.financeguardian.core.notifications.NotificationEvent
 import com.kevin.financeguardian.core.permissions.AppPermissionStatuses
 import com.kevin.financeguardian.core.permissions.FinanceGuardianPermission
 import com.kevin.financeguardian.core.permissions.PermissionStatusChecker
+import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.fixture.SmsFixture
 import com.kevin.financeguardian.data.fixture.SmsFixtureImportResult
 import com.kevin.financeguardian.data.fixture.SmsFixtureImporter
@@ -76,6 +81,9 @@ class SettingsViewModelTest {
         viewModel.setAppLockEnabled(false)
         viewModel.setScreenPrivacyEnabled(true)
         viewModel.setDebugParserModeEnabled(true)
+        viewModel.setNotificationsEnabled(false)
+        viewModel.setProactiveInsightsEnabled(false)
+        viewModel.setShowAmountsOnLockScreen(false)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
@@ -83,18 +91,60 @@ class SettingsViewModelTest {
         assertFalse(state.appLockEnabled)
         assertTrue(state.screenPrivacyEnabled)
         assertTrue(state.debugParserModeEnabled)
+        assertFalse(state.notificationsEnabled)
+        assertFalse(state.proactiveInsightsEnabled)
+        assertFalse(state.showAmountsOnLockScreen)
+    }
+
+    @Test
+    fun refreshPermissionsDispatchesPermissionGrantedEvents() = runTest {
+        val checker = FakePermissionStatusChecker()
+        val dispatcher = RecordingNotificationDispatcher()
+        val viewModel = viewModel(
+            checker = checker,
+            dispatcher = dispatcher,
+        )
+        advanceUntilIdle()
+
+        checker.statuses = AppPermissionStatuses(
+            receiveSmsGranted = true,
+            postNotificationsGranted = true,
+        )
+        viewModel.refreshPermissions()
+        advanceUntilIdle()
+
+        assertTrue(
+            dispatcher.events.contains(
+                NotificationEvent.PermissionGranted(
+                    permission = NotificationEvent.Permission.Sms,
+                    occurredAt = now,
+                ),
+            ),
+        )
+        assertTrue(
+            dispatcher.events.contains(
+                NotificationEvent.PermissionGranted(
+                    permission = NotificationEvent.Permission.Notifications,
+                    occurredAt = now,
+                ),
+            ),
+        )
     }
 
     @Test
     fun resetAllDataCallsBackendAndReportsSuccess() = runTest {
         val resetter = FakeAppDataResetter()
-        val viewModel = viewModel(resetter = resetter)
+        val noticeManager = InAppNoticeManager()
+        val viewModel = viewModel(
+            resetter = resetter,
+            noticeManager = noticeManager,
+        )
 
         viewModel.resetAllData()
         advanceUntilIdle()
 
         assertTrue(resetter.resetCalled)
-        assertTrue(viewModel.uiState.value.dataActionMessage?.contains("reset") == true)
+        assertTrue(noticeManager.notice.value?.message?.contains("reset") == true)
     }
 
     @Test
@@ -115,13 +165,17 @@ class SettingsViewModelTest {
                 ),
             ),
         )
-        val viewModel = viewModel(importer = importer)
+        val noticeManager = InAppNoticeManager()
+        val viewModel = viewModel(
+            importer = importer,
+            noticeManager = noticeManager,
+        )
 
         viewModel.importFixtureJson("{}")
         advanceUntilIdle()
 
         assertTrue(importer.lastJson == "{}")
-        assertTrue(viewModel.uiState.value.dataActionMessage?.contains("1 parsed") == true)
+        assertTrue(noticeManager.notice.value?.message?.contains("1 parsed") == true)
     }
 
     private fun viewModel(
@@ -129,12 +183,17 @@ class SettingsViewModelTest {
         checker: FakePermissionStatusChecker = FakePermissionStatusChecker(),
         resetter: FakeAppDataResetter = FakeAppDataResetter(),
         importer: FakeSmsFixtureImporter = FakeSmsFixtureImporter(),
+        dispatcher: NotificationDispatcher = RecordingNotificationDispatcher(),
+        noticeManager: InAppNoticeManager = InAppNoticeManager(),
     ): SettingsViewModel =
         SettingsViewModel(
             userPreferencesRepository = repository,
             permissionStatusChecker = checker,
             appDataResetter = resetter,
             smsFixtureImporter = importer,
+            notificationDispatcher = dispatcher,
+            noticeManager = noticeManager,
+            clock = FixedClock(now),
         )
 
     private fun repository(fileName: String): UserPreferencesRepository {
@@ -178,5 +237,21 @@ class SettingsViewModelTest {
             lastJson = json
             return results
         }
+    }
+
+    private class RecordingNotificationDispatcher : NotificationDispatcher {
+        val events = mutableListOf<NotificationEvent>()
+
+        override suspend fun dispatch(event: NotificationEvent) {
+            events += event
+        }
+    }
+
+    private class FixedClock(private val instant: Instant) : AppClock {
+        override fun now(): Instant = instant
+    }
+
+    private companion object {
+        val now: Instant = Instant.parse("2026-04-23T12:00:00Z")
     }
 }

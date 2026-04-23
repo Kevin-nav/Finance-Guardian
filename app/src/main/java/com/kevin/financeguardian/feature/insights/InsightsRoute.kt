@@ -123,6 +123,43 @@ fun InsightsRoute(
             }
         }
 
+        uiState.highlightInsight?.let { insight ->
+            item(key = "highlight_insight") {
+                OutlinedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateItem(),
+                    shape = MaterialTheme.shapes.medium,
+                    colors = CardDefaults.outlinedCardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                    ) {
+                        Text(
+                            text = "PROACTIVE INSIGHT",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = insight.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Text(
+                            text = insight.summary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+            }
+        }
+
         item(key = "net_card") {
             SummaryStatCard(
                 icon = Icons.Filled.AccountBalanceWallet,

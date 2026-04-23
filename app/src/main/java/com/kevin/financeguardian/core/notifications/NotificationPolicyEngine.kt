@@ -1,6 +1,9 @@
 package com.kevin.financeguardian.core.notifications
 
+import java.time.Duration
 import java.time.Instant
+import javax.inject.Inject
+import javax.inject.Singleton
 
 data class NotificationPolicyContext(
     val notificationsEnabled: Boolean = true,
@@ -12,9 +15,40 @@ fun interface NotificationRateLimiter {
     fun allow(key: String, now: Instant): Boolean
 }
 
+@Singleton
+class InMemoryNotificationRateLimiter @Inject constructor() : NotificationRateLimiter {
+    private val lastNotificationAt = mutableMapOf<String, Instant>()
+
+    override fun allow(
+        key: String,
+        now: Instant,
+    ): Boolean = synchronized(this) {
+        val minimumInterval = minimumIntervalFor(key)
+        val previous = lastNotificationAt[key]
+        val allowed = previous == null || Duration.between(previous, now) >= minimumInterval
+        if (allowed) {
+            lastNotificationAt[key] = now
+        }
+        allowed
+    }
+
+    private fun minimumIntervalFor(key: String): Duration =
+        when (key) {
+            "transactions" -> Duration.ofMinutes(2)
+            "review_needed" -> Duration.ofMinutes(1)
+            "insights" -> Duration.ofDays(1)
+            else -> Duration.ZERO
+        }
+}
+
 class NotificationPolicyEngine(
-    private val rateLimiter: NotificationRateLimiter = NotificationRateLimiter { _, _ -> true },
+    private val rateLimiter: NotificationRateLimiter,
 ) {
+    constructor() : this(NotificationRateLimiter { _, _ -> true })
+
+    @Inject
+    constructor(rateLimiter: InMemoryNotificationRateLimiter) : this(rateLimiter as NotificationRateLimiter)
+
     fun decide(
         event: NotificationEvent,
         context: NotificationPolicyContext,

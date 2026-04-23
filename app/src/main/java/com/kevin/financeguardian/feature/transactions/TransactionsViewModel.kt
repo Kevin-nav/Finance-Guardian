@@ -2,6 +2,8 @@ package com.kevin.financeguardian.feature.transactions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kevin.financeguardian.core.notifications.NotificationDispatcher
+import com.kevin.financeguardian.core.notifications.NotificationEvent
 import com.kevin.financeguardian.core.permissions.PermissionStatusChecker
 import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.local.dao.CategoryDao
@@ -32,6 +34,7 @@ class TransactionsViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val categoryDao: CategoryDao,
     private val transactionCorrectionApplier: TransactionCorrectionApplier,
+    private val notificationDispatcher: NotificationDispatcher,
     private val permissionStatusChecker: PermissionStatusChecker,
     private val clock: AppClock,
 ) : ViewModel() {
@@ -92,6 +95,12 @@ class TransactionsViewModel @Inject constructor(
                 categoryId = categoryId,
                 moneyMovementType = movementType,
                 saveMerchantDefault = true,
+            )
+            notificationDispatcher.dispatch(
+                NotificationEvent.CorrectionSaved(
+                    transactionId = transactionId,
+                    occurredAt = clock.now(),
+                ),
             )
             selectedTransactionId.value = null
         }

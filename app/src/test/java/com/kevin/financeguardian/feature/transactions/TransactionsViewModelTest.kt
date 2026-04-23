@@ -1,5 +1,7 @@
 package com.kevin.financeguardian.feature.transactions
 
+import com.kevin.financeguardian.core.notifications.NotificationDispatcher
+import com.kevin.financeguardian.core.notifications.NotificationEvent
 import com.kevin.financeguardian.core.permissions.AppPermissionStatuses
 import com.kevin.financeguardian.core.permissions.FinanceGuardianPermission
 import com.kevin.financeguardian.core.permissions.PermissionStatusChecker
@@ -39,6 +41,7 @@ class TransactionsViewModelTest {
     private val repository = FakeTransactionRepository()
     private val categoryDao = FakeCategoryDao()
     private val correctionApplier = FakeTransactionCorrectionApplier()
+    private val notificationDispatcher = RecordingNotificationDispatcher()
 
     @Test
     fun emptyStateReportsPermissionStatus() = runTest {
@@ -189,6 +192,15 @@ class TransactionsViewModelTest {
             ),
             correctionApplier.lastCall,
         )
+        assertEquals(
+            listOf(
+                NotificationEvent.CorrectionSaved(
+                    transactionId = "expense-1",
+                    occurredAt = now,
+                ),
+            ),
+            notificationDispatcher.events,
+        )
         assertEquals(null, viewModel.uiState.value.selectedTransaction)
     }
 
@@ -214,6 +226,7 @@ class TransactionsViewModelTest {
             transactionRepository = repository,
             categoryDao = categoryDao,
             transactionCorrectionApplier = correctionApplier,
+            notificationDispatcher = notificationDispatcher,
             permissionStatusChecker = checker,
             clock = FixedClock(now),
         )
@@ -364,5 +377,13 @@ class TransactionsViewModelTest {
 
     private class FixedClock(private val instant: Instant) : AppClock {
         override fun now(): Instant = instant
+    }
+
+    private class RecordingNotificationDispatcher : NotificationDispatcher {
+        val events = mutableListOf<NotificationEvent>()
+
+        override suspend fun dispatch(event: NotificationEvent) {
+            events += event
+        }
     }
 }
