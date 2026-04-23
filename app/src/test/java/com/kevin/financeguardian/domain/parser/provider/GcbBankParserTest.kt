@@ -32,6 +32,7 @@ class GcbBankParserTest {
         assertEquals(MoneyMovementType.INTERNAL_TRANSFER, parsed.transaction.moneyMovementType)
         assertEquals(1200, parsed.transaction.amountMinor)
         assertEquals("VISA Card Top Up SAMPLE 000000000", parsed.transaction.counterpartyName)
+        assertEquals("VISA Card Top Up SAMPLE 000000000", parsed.transaction.reference)
         assertEquals(21741L, parsed.transaction.balanceAfterMinor)
         assertEquals(Instant.parse("2026-04-08T14:13:00Z"), parsed.transaction.occurredAt)
     }
@@ -103,9 +104,11 @@ class GcbBankParserTest {
         assertEquals(TransactionDirection.DEBIT, debit.transaction.direction)
         assertEquals(1200, debit.transaction.amountMinor)
         assertEquals(200L, debit.transaction.balanceAfterMinor)
+        assertEquals("Prepaid Card", debit.transaction.reference)
         assertEquals(TransactionDirection.CREDIT, credit.transaction.direction)
         assertEquals(1200, credit.transaction.amountMinor)
         assertEquals(1400L, credit.transaction.balanceAfterMinor)
+        assertEquals("Prepaid Card", credit.transaction.reference)
     }
 
     @Test

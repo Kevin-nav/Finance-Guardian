@@ -8,6 +8,7 @@ import java.time.Instant
 internal fun parsedResult(
     provider: Provider,
     input: SmsParseInput,
+    providerTransactionId: String? = null,
     occurredAt: Instant = input.receivedAt,
     direction: TransactionDirection,
     moneyMovementType: MoneyMovementType,
@@ -22,6 +23,7 @@ internal fun parsedResult(
         transaction = ParsedTransaction(
             provider = provider,
             rawSender = input.sender,
+            providerTransactionId = providerTransactionId?.cleanReference(),
             occurredAt = occurredAt,
             direction = direction,
             moneyMovementType = moneyMovementType,
@@ -56,6 +58,18 @@ internal fun referenceAfter(body: String): String? =
         ?.groupValues
         ?.getOrNull(1)
         ?.cleanReference()
+
+internal fun providerTransactionIdAfter(body: String): String? =
+    Regex("""(?i)(?:Financial Transaction Id|Transaction Id|Transaction ID)\s*:\s*([A-Za-z0-9-]+)""")
+        .find(body)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.cleanReference()
+        ?: Regex("""^\s*([0-9]{6,})\s+confirmed\b""", RegexOption.IGNORE_CASE)
+            .find(body)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.cleanReference()
 
 internal fun knownSubscriptionMovement(description: String): MoneyMovementType {
     val lower = description.lowercase()

@@ -2,6 +2,7 @@ package com.kevin.financeguardian.data.transaction
 
 import com.kevin.financeguardian.core.id.IdGenerator
 import com.kevin.financeguardian.core.time.AppClock
+import com.kevin.financeguardian.data.learning.LearningSignalRecorder
 import com.kevin.financeguardian.data.local.dao.MerchantDao
 import com.kevin.financeguardian.data.local.dao.TransactionDao
 import com.kevin.financeguardian.data.local.entity.MerchantEntity
@@ -14,6 +15,7 @@ class TransactionCorrectionService @Inject constructor(
     private val merchantDao: MerchantDao,
     private val idGenerator: IdGenerator,
     private val clock: AppClock,
+    private val learningSignalRecorder: LearningSignalRecorder,
 ) : TransactionCorrectionApplier {
     override suspend fun applyCorrection(
         transactionId: String,
@@ -61,6 +63,13 @@ class TransactionCorrectionService @Inject constructor(
                 )
             }
         }
+
+        learningSignalRecorder.recordCorrection(
+            transaction = transaction,
+            categoryId = categoryId,
+            moneyMovementType = moneyMovementType ?: transaction.moneyMovementType,
+            now = now,
+        )
 
         return TransactionCorrectionResult.Applied
     }

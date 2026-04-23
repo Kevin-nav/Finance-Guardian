@@ -2,9 +2,11 @@ package com.kevin.financeguardian.di
 
 import android.content.Context
 import androidx.room.Room
+import com.kevin.financeguardian.data.local.DatabaseMigrations
 import com.kevin.financeguardian.data.local.FinanceGuardianDatabase
 import com.kevin.financeguardian.data.local.LocalDatabaseContract
 import com.kevin.financeguardian.data.local.dao.CategoryDao
+import com.kevin.financeguardian.data.local.dao.LearningSignalDao
 import com.kevin.financeguardian.data.local.dao.MerchantDao
 import com.kevin.financeguardian.data.local.dao.ParserRuleDao
 import com.kevin.financeguardian.data.local.dao.SmsMessageRecordDao
@@ -28,7 +30,11 @@ object DatabaseModule {
             context,
             FinanceGuardianDatabase::class.java,
             LocalDatabaseContract.DATABASE_NAME,
-        ).build()
+        ).addMigrations(
+            DatabaseMigrations.MIGRATION_1_2,
+            DatabaseMigrations.MIGRATION_2_3,
+        )
+            .build()
 
     @Provides
     fun provideTransactionDao(database: FinanceGuardianDatabase): TransactionDao =
@@ -37,6 +43,10 @@ object DatabaseModule {
     @Provides
     fun provideCategoryDao(database: FinanceGuardianDatabase): CategoryDao =
         database.categoryDao()
+
+    @Provides
+    fun provideLearningSignalDao(database: FinanceGuardianDatabase): LearningSignalDao =
+        database.learningSignalDao()
 
     @Provides
     fun provideMerchantDao(database: FinanceGuardianDatabase): MerchantDao =

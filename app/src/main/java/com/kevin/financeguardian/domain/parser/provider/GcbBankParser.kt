@@ -10,6 +10,7 @@ import com.kevin.financeguardian.domain.parser.knownSubscriptionMovement
 import com.kevin.financeguardian.domain.parser.parseAmountMinor
 import com.kevin.financeguardian.domain.parser.parseDateTimeInstant
 import com.kevin.financeguardian.domain.parser.parsedResult
+import com.kevin.financeguardian.domain.parser.providerTransactionIdAfter
 
 class GcbBankParser : ProviderParser {
     override val provider: Provider = Provider.GCB
@@ -26,11 +27,13 @@ class GcbBankParser : ProviderParser {
         return parsedResult(
             provider = provider,
             input = input,
+            providerTransactionId = providerTransactionIdAfter(body),
             occurredAt = parseDateTimeInstant(match.groupValues[5]) ?: input.receivedAt,
             direction = if (isCredit) TransactionDirection.CREDIT else TransactionDirection.DEBIT,
             moneyMovementType = accountMovementType(description, isCredit),
             amountMinor = parseAmountMinor(match.groupValues[3]) ?: return null,
             counterpartyName = description,
+            reference = description,
             balanceAfterMinor = parseAmountMinor(match.groupValues[6]),
             confidence = 0.94f,
         )
@@ -44,10 +47,12 @@ class GcbBankParser : ProviderParser {
         return parsedResult(
             provider = provider,
             input = input,
+            providerTransactionId = providerTransactionIdAfter(body),
             direction = if (isCredit) TransactionDirection.CREDIT else TransactionDirection.DEBIT,
             moneyMovementType = if (isCredit) MoneyMovementType.INCOME else MoneyMovementType.EXPENSE,
             amountMinor = parseAmountMinor(match.groupValues[2]) ?: return null,
             counterpartyName = "Prepaid Card",
+            reference = "Prepaid Card",
             balanceAfterMinor = parseAmountMinor(match.groupValues[3]),
             confidence = 0.86f,
         )

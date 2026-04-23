@@ -7,6 +7,7 @@ import com.kevin.financeguardian.core.notifications.NoOpNotificationDispatcher
 import com.kevin.financeguardian.core.notifications.NotificationDispatcher
 import com.kevin.financeguardian.core.notifications.NotificationEvent
 import com.kevin.financeguardian.core.time.AppClock
+import com.kevin.financeguardian.data.learning.CategorySuggestionService
 import com.kevin.financeguardian.data.local.FinanceGuardianDatabase
 import com.kevin.financeguardian.data.local.entity.MerchantEntity
 import com.kevin.financeguardian.data.merchant.MerchantCategoryResolver
@@ -192,6 +193,7 @@ class SmsIngestionServiceNotificationTest {
                 merchantDao = database.merchantDao(),
                 idGenerator = idGenerator,
             ),
+            categorySuggestionService = object : CategorySuggestionService(database.learningSignalDao()) {},
             notificationDispatcher = notificationDispatcher,
         )
     }
@@ -216,6 +218,7 @@ class SmsIngestionServiceNotificationTest {
             transaction = ParsedTransaction(
                 provider = Provider.MTN_MOMO,
                 rawSender = envelope.sender,
+                providerTransactionId = "123",
                 occurredAt = receivedAt,
                 direction = TransactionDirection.DEBIT,
                 moneyMovementType = MoneyMovementType.EXPENSE,

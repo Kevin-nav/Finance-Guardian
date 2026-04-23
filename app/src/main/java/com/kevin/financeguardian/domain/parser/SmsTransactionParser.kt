@@ -28,6 +28,7 @@ sealed interface SmsParseResult {
 data class ParsedTransaction(
     val provider: Provider,
     val rawSender: String,
+    val providerTransactionId: String? = null,
     val occurredAt: Instant,
     val direction: TransactionDirection,
     val moneyMovementType: MoneyMovementType,

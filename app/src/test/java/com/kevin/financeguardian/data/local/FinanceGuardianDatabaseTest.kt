@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
 import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.local.entity.CategoryEntity
+import com.kevin.financeguardian.data.local.entity.LearningSignalEntity
 import com.kevin.financeguardian.data.local.entity.MerchantEntity
 import com.kevin.financeguardian.data.local.entity.SmsMessageRecordEntity
 import com.kevin.financeguardian.data.local.entity.TransactionEntity
@@ -201,6 +202,79 @@ class FinanceGuardianDatabaseTest {
         assertEquals("food", database.merchantDao().getById("merchant-1")?.defaultCategoryId)
     }
 
+    @Test
+    fun learningSignalDaoCanInsertAndQueryBySignalKey() = runTest {
+        val signal = sampleLearningSignal()
+
+        database.learningSignalDao().upsert(signal)
+
+        assertEquals(signal, database.learningSignalDao().getBySignalKey(signal.signalKey))
+    }
+
+    @Test
+    fun learningSignalDaoUpsertBySignalKeyUpdatesExistingSignal() = runTest {
+        val original = sampleLearningSignal()
+        val updated = original.copy(
+            id = "signal-2",
+            transactionId = "transaction-2",
+            categoryId = "transport",
+            weight = 4.0f,
+            updatedAt = original.updatedAt.plusSeconds(60),
+        )
+
+        database.learningSignalDao().upsert(original)
+        database.learningSignalDao().upsert(updated)
+
+        val stored = database.learningSignalDao().getBySignalKey(original.signalKey)
+        assertEquals("signal-1", stored?.id)
+        assertEquals("transaction-2", stored?.transactionId)
+        assertEquals("transport", stored?.categoryId)
+        assertEquals(4.0f, stored?.weight)
+        assertEquals(updated.updatedAt, stored?.updatedAt)
+        assertEquals(1, database.learningSignalDao().getAllOnce().size)
+    }
+
+    @Test
+    fun learningSignalDaoCanQueryByNormalizedMerchantPhoneAndReference() = runTest {
+        val merchantSignal = sampleLearningSignal(
+            id = "signal-merchant",
+            signalKey = "merchant|mtn|sample merchant",
+            normalizedPhone = null,
+            normalizedReference = null,
+        )
+        val phoneSignal = sampleLearningSignal(
+            id = "signal-phone",
+            signalKey = "phone|mtn|233244000111",
+            normalizedMerchantName = null,
+            normalizedPhone = "233244000111",
+            normalizedReference = null,
+        )
+        val referenceSignal = sampleLearningSignal(
+            id = "signal-reference",
+            signalKey = "reference|mtn|snacks",
+            normalizedMerchantName = null,
+            normalizedPhone = null,
+            normalizedReference = "snacks",
+        )
+
+        database.learningSignalDao().upsert(merchantSignal)
+        database.learningSignalDao().upsert(phoneSignal)
+        database.learningSignalDao().upsert(referenceSignal)
+
+        assertEquals(
+            listOf(merchantSignal),
+            database.learningSignalDao().findByNormalizedMerchantName("sample merchant"),
+        )
+        assertEquals(
+            listOf(phoneSignal),
+            database.learningSignalDao().findByNormalizedPhone("233244000111"),
+        )
+        assertEquals(
+            listOf(referenceSignal),
+            database.learningSignalDao().findByNormalizedReference("snacks"),
+        )
+    }
+
     private fun sampleTransaction(): TransactionEntity {
         val now = Instant.parse("2026-04-21T12:00:00Z")
         return TransactionEntity(
@@ -235,6 +309,33 @@ class FinanceGuardianDatabaseTest {
             processedAt = now,
             parseStatus = ParseStatus.PARSED,
             parseReason = null,
+        )
+    }
+
+    private fun sampleLearningSignal(
+        id: String = "signal-1",
+        signalKey: String = "merchant|mtn|sample merchant|snacks",
+        normalizedMerchantName: String? = "sample merchant",
+        normalizedPhone: String? = "233244000000",
+        normalizedReference: String? = "snacks",
+    ): LearningSignalEntity {
+        val now = Instant.parse("2026-04-21T12:00:00Z")
+        return LearningSignalEntity(
+            id = id,
+            signalKey = signalKey,
+            transactionId = "transaction-1",
+            provider = Provider.MTN_MOMO,
+            normalizedMerchantName = normalizedMerchantName,
+            normalizedPhone = normalizedPhone,
+            normalizedReference = normalizedReference,
+            amountBucket = "small",
+            direction = TransactionDirection.DEBIT,
+            moneyMovementType = MoneyMovementType.EXPENSE,
+            categoryId = "food",
+            signalType = "USER_CORRECTION",
+            weight = 2.0f,
+            createdAt = now,
+            updatedAt = now,
         )
     }
 

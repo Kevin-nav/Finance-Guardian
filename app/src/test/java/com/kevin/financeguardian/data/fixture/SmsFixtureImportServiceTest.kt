@@ -6,6 +6,7 @@ import com.kevin.financeguardian.core.id.IdGenerator
 import com.kevin.financeguardian.core.notifications.NotificationDispatcher
 import com.kevin.financeguardian.core.notifications.NotificationEvent
 import com.kevin.financeguardian.core.time.AppClock
+import com.kevin.financeguardian.data.learning.CategorySuggestionService
 import com.kevin.financeguardian.data.local.FinanceGuardianDatabase
 import com.kevin.financeguardian.data.local.entity.MerchantEntity
 import com.kevin.financeguardian.data.merchant.MerchantCategoryResolver
@@ -124,6 +125,7 @@ class SmsFixtureImportServiceTest {
                 merchantDao = database.merchantDao(),
                 idGenerator = idGenerator,
             ),
+            categorySuggestionService = object : CategorySuggestionService(database.learningSignalDao()) {},
             notificationDispatcher = NoOpNotificationDispatcher,
         )
         return SmsFixtureImportService(ingestionService)

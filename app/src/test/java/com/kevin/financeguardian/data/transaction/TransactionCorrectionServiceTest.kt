@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.kevin.financeguardian.core.id.IdGenerator
 import com.kevin.financeguardian.core.time.AppClock
+import com.kevin.financeguardian.data.learning.LearningSignalRecorder
 import com.kevin.financeguardian.data.local.FinanceGuardianDatabase
 import com.kevin.financeguardian.data.local.entity.MerchantEntity
 import com.kevin.financeguardian.data.local.entity.TransactionEntity
@@ -15,6 +16,7 @@ import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -69,6 +71,7 @@ class TransactionCorrectionServiceTest {
         val transaction = database.transactionDao().getById("transaction-1")
         assertEquals("food", transaction?.categoryId)
         assertEquals(correctedAt, transaction?.updatedAt)
+        assertTrue(database.learningSignalDao().getAllOnce().isNotEmpty())
     }
 
     @Test
@@ -148,12 +151,36 @@ class TransactionCorrectionServiceTest {
         assertEquals("income", categoryId)
     }
 
+    @Test
+    fun repeatedCorrectionsStrengthenLearningSignals() = runTest {
+        insertTransaction()
+        service(ids = listOf("signal-1", "signal-2", "signal-3", "signal-4")).applyCorrection(
+            transactionId = "transaction-1",
+            categoryId = "income",
+            moneyMovementType = null,
+            saveMerchantDefault = false,
+        )
+        service(ids = emptyList()).applyCorrection(
+            transactionId = "transaction-1",
+            categoryId = "income",
+            moneyMovementType = null,
+            saveMerchantDefault = false,
+        )
+
+        val merchantSignal = database.learningSignalDao().getBySignalKey("merchant|mtn_momo|sample sender")
+        assertEquals(2.0f, merchantSignal?.weight)
+    }
+
     private fun service(ids: List<String> = emptyList()): TransactionCorrectionService =
         TransactionCorrectionService(
             transactionDao = database.transactionDao(),
             merchantDao = database.merchantDao(),
             idGenerator = FakeIdGenerator(ids),
             clock = FixedClock(correctedAt),
+            learningSignalRecorder = LearningSignalRecorder(
+                learningSignalDao = database.learningSignalDao(),
+                idGenerator = FakeIdGenerator(ids),
+            ),
         )
 
     private suspend fun insertTransaction(
@@ -208,8 +235,15 @@ class TransactionCorrectionServiceTest {
 
     private class FakeIdGenerator(ids: List<String>) : IdGenerator {
         private val queue = ArrayDeque(ids)
+        private var generatedCount: Int = 0
 
-        override fun newId(): String = queue.removeFirst()
+        override fun newId(): String =
+            if (queue.isNotEmpty()) {
+                queue.removeFirst()
+            } else {
+                generatedCount += 1
+                "generated-$generatedCount"
+            }
     }
 
     private class FixedClock(private val instant: Instant) : AppClock {

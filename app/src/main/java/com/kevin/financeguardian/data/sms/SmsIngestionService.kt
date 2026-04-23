@@ -3,6 +3,7 @@ package com.kevin.financeguardian.data.sms
 import android.database.sqlite.SQLiteConstraintException
 import androidx.room.withTransaction
 import com.kevin.financeguardian.core.id.IdGenerator
+import com.kevin.financeguardian.data.learning.CategorySuggestionService
 import com.kevin.financeguardian.core.notifications.InsightEvaluator
 import com.kevin.financeguardian.core.notifications.NotificationDispatcher
 import com.kevin.financeguardian.core.notifications.NotificationEvent
@@ -15,6 +16,7 @@ import com.kevin.financeguardian.data.local.entity.SmsMessageRecordEntity
 import com.kevin.financeguardian.data.local.entity.TransactionEntity
 import com.kevin.financeguardian.data.local.mapper.toDomain
 import com.kevin.financeguardian.data.merchant.MerchantCategoryResolver
+import com.kevin.financeguardian.data.transaction.TransactionFingerprintFactory
 import com.kevin.financeguardian.domain.model.ParseStatus
 import com.kevin.financeguardian.domain.parser.SmsParseInput
 import com.kevin.financeguardian.domain.parser.SmsParseResult
@@ -31,6 +33,7 @@ class SmsIngestionService @Inject constructor(
     private val idGenerator: IdGenerator,
     private val clock: AppClock,
     private val merchantCategoryResolver: MerchantCategoryResolver,
+    private val categorySuggestionService: CategorySuggestionService,
     private val notificationDispatcher: NotificationDispatcher = NoOpNotificationDispatcher(),
     private val insightEvaluator: InsightEvaluator = InsightEvaluator(),
 ) {
@@ -118,7 +121,65 @@ class SmsIngestionService @Inject constructor(
         val now = clock.now()
         val smsRecordId = idGenerator.newId()
         val transactionId = idGenerator.newId()
+        val parsed = result.transaction
+        val fingerprint = TransactionFingerprintFactory.fromParsed(parsed)
+        val existingTransaction = transactionDao.findByDedupeKey(fingerprint.dedupeKey)
+        if (existingTransaction != null) {
+            val duplicateSmsRecordId = persistDuplicateSmsRecord(
+                smsRecordId = smsRecordId,
+                envelope = envelope,
+                bodyHash = bodyHash,
+                now = now,
+                reason = "Duplicate transaction ${existingTransaction.id}",
+            )
+            return ParsedPersistence(
+                ingestionResult = SmsIngestionResult.Duplicate(
+                    existingTransaction.sourceMessageId ?: duplicateSmsRecordId,
+                ),
+                notificationEvent = null,
+            )
+        }
 
+        var categoryId = merchantCategoryResolver.resolveForParsedTransaction(
+            provider = parsed.provider,
+            moneyMovementType = parsed.moneyMovementType,
+            counterpartyName = parsed.counterpartyName,
+            counterpartyPhone = parsed.counterpartyPhone,
+            reference = parsed.reference,
+            transactionId = transactionId,
+            now = now,
+        )
+        var moneyMovementType = parsed.moneyMovementType
+        if (categoryId == null) {
+            val suggestion = categorySuggestionService.suggestFor(
+                com.kevin.financeguardian.domain.model.Transaction(
+                    id = transactionId,
+                    sourceMessageId = null,
+                    provider = parsed.provider,
+                    rawSender = parsed.rawSender,
+                    rawBodyHash = bodyHash,
+                    providerTransactionId = fingerprint.providerTransactionId,
+                    dedupeKey = fingerprint.dedupeKey,
+                    occurredAt = parsed.occurredAt,
+                    direction = parsed.direction,
+                    moneyMovementType = parsed.moneyMovementType,
+                    amountMinor = parsed.amountMinor,
+                    currency = parsed.currency,
+                    counterpartyName = parsed.counterpartyName,
+                    counterpartyPhone = parsed.counterpartyPhone,
+                    reference = parsed.reference,
+                    balanceAfterMinor = parsed.balanceAfterMinor,
+                    categoryId = null,
+                    confidence = result.confidence,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            )
+            if (suggestion.shouldAutoApply) {
+                categoryId = suggestion.suggestedCategoryId
+                moneyMovementType = suggestion.suggestedMoneyMovementType ?: moneyMovementType
+            }
+        }
         val duplicateId = insertSmsRecordOrDuplicate(
             entity = SmsMessageRecordEntity(
                 id = smsRecordId,
@@ -140,13 +201,6 @@ class SmsIngestionService @Inject constructor(
             )
         }
 
-        val parsed = result.transaction
-        val categoryId = merchantCategoryResolver.resolveForParsedTransaction(
-            counterpartyName = parsed.counterpartyName,
-            counterpartyPhone = parsed.counterpartyPhone,
-            transactionId = transactionId,
-            now = now,
-        )
         transactionDao.insert(
             TransactionEntity(
                 id = transactionId,
@@ -154,9 +208,11 @@ class SmsIngestionService @Inject constructor(
                 provider = parsed.provider,
                 rawSender = parsed.rawSender,
                 rawBodyHash = bodyHash,
+                providerTransactionId = fingerprint.providerTransactionId,
+                dedupeKey = fingerprint.dedupeKey,
                 occurredAt = parsed.occurredAt,
                 direction = parsed.direction,
-                moneyMovementType = parsed.moneyMovementType,
+                moneyMovementType = moneyMovementType,
                 amountMinor = parsed.amountMinor,
                 currency = parsed.currency,
                 counterpartyName = parsed.counterpartyName,
@@ -208,6 +264,30 @@ class SmsIngestionService @Inject constructor(
             ParseStatus.FAILED -> SmsIngestionResult.Failed(smsRecordId, reason)
             else -> error("Unsupported non-parsed status: $status")
         }
+    }
+
+    private suspend fun persistDuplicateSmsRecord(
+        smsRecordId: String,
+        envelope: SmsMessageEnvelope,
+        bodyHash: String,
+        now: Instant,
+        reason: String,
+    ): String {
+        val duplicateId = insertSmsRecordOrDuplicate(
+            entity = SmsMessageRecordEntity(
+                id = smsRecordId,
+                sender = envelope.sender,
+                bodyHash = bodyHash,
+                receivedAt = envelope.receivedAt,
+                processedAt = now,
+                parseStatus = ParseStatus.DUPLICATE,
+                parseReason = reason,
+            ),
+            sender = envelope.sender,
+            bodyHash = bodyHash,
+            receivedAt = envelope.receivedAt,
+        )
+        return duplicateId ?: smsRecordId
     }
 
     private suspend fun insertSmsRecordOrDuplicate(

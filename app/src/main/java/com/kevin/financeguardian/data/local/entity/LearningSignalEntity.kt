@@ -9,32 +9,28 @@ import com.kevin.financeguardian.domain.model.TransactionDirection
 import java.time.Instant
 
 @Entity(
-    tableName = "transactions",
+    tableName = "learning_signals",
     indices = [
-        Index(value = ["sourceMessageId"], unique = true),
-        Index(value = ["occurredAt"]),
-        Index(value = ["categoryId"]),
+        Index(value = ["signalKey"], unique = true),
+        Index(value = ["normalizedMerchantName"]),
+        Index(value = ["normalizedPhone"]),
+        Index(value = ["normalizedReference"]),
     ],
 )
-data class TransactionEntity(
+data class LearningSignalEntity(
     @PrimaryKey val id: String,
-    val sourceMessageId: String?,
+    val signalKey: String,
+    val transactionId: String?,
     val provider: Provider,
-    val rawSender: String,
-    val rawBodyHash: String,
-    val providerTransactionId: String? = null,
-    val dedupeKey: String? = null,
-    val occurredAt: Instant,
+    val normalizedMerchantName: String?,
+    val normalizedPhone: String?,
+    val normalizedReference: String?,
+    val amountBucket: String?,
     val direction: TransactionDirection,
     val moneyMovementType: MoneyMovementType,
-    val amountMinor: Long,
-    val currency: String,
-    val counterpartyName: String?,
-    val counterpartyPhone: String?,
-    val reference: String?,
-    val balanceAfterMinor: Long?,
     val categoryId: String?,
-    val confidence: Float,
+    val signalType: String,
+    val weight: Float,
     val createdAt: Instant,
     val updatedAt: Instant,
 )

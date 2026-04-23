@@ -28,6 +28,7 @@ class MtnMomoParserTest {
         assertEquals(1850, parsed.transaction.amountMinor)
         assertEquals("SAMPLE ENTERPRISE", parsed.transaction.counterpartyName)
         assertEquals("snacks", parsed.transaction.reference)
+        assertEquals("123", parsed.transaction.providerTransactionId)
         assertEquals(44961L, parsed.transaction.balanceAfterMinor)
         assertEquals(Instant.parse("2026-04-21T15:55:04Z"), parsed.transaction.occurredAt)
         assertTrue(parsed.confidence >= 0.85f)

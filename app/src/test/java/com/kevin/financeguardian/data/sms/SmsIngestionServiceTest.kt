@@ -8,9 +8,12 @@ import com.kevin.financeguardian.core.notifications.NotificationDispatcher
 import com.kevin.financeguardian.core.notifications.NotificationEvent
 import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.local.FinanceGuardianDatabase
+import com.kevin.financeguardian.data.learning.CategorySuggestionService
+import com.kevin.financeguardian.data.learning.LearningSuggestion
 import com.kevin.financeguardian.data.local.entity.MerchantEntity
 import com.kevin.financeguardian.data.local.entity.TransactionEntity
 import com.kevin.financeguardian.data.merchant.MerchantCategoryResolver
+import com.kevin.financeguardian.data.transaction.TransactionFingerprintFactory
 import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.ParseStatus
 import com.kevin.financeguardian.domain.model.Provider
@@ -103,6 +106,29 @@ class SmsIngestionServiceTest {
     }
 
     @Test
+    fun variantDuplicateSmsStoresDuplicateRecordButNotSecondTransaction() = runTest {
+        val first = service(
+            parserResult = parsedResult(),
+            ids = listOf("sms-1", "transaction-1", "merchant-1"),
+        )
+        val second = service(
+            parserResult = parsedResult(counterpartyName = "Merchant 004501"),
+            ids = listOf("sms-duplicate", "transaction-2"),
+        )
+
+        first.ingest(envelope)
+        val duplicateResult = second.ingest(
+            envelope.copy(body = "Y'ello variant body with same transaction id"),
+        )
+
+        assertEquals(SmsIngestionResult.Duplicate("sms-1"), duplicateResult)
+        assertEquals(1, database.transactionDao().getAllOnce().size)
+        val duplicateRecord = database.smsMessageRecordDao()
+            .findDuplicate("MobileMoney", BodyHasher.sha256Hex("Y'ello variant body with same transaction id"), receivedAt)
+        assertEquals(ParseStatus.DUPLICATE, duplicateRecord?.parseStatus)
+    }
+
+    @Test
     fun parsedSmsAppliesExistingMerchantDefaultCategoryByName() = runTest {
         insertMerchant(
             id = "merchant-1",
@@ -114,6 +140,60 @@ class SmsIngestionServiceTest {
         val service = service(
             parserResult = parsedResult(),
             ids = listOf("sms-1", "transaction-1"),
+        )
+
+        service.ingest(envelope)
+
+        assertEquals("income", database.transactionDao().getById("transaction-1")?.categoryId)
+    }
+
+    @Test
+    fun parsedSmsAutoAppliesHighConfidenceLearningSuggestionWhenNoMerchantDefaultExists() = runTest {
+        val service = service(
+            parserResult = parsedResult(
+                direction = TransactionDirection.DEBIT,
+                moneyMovementType = MoneyMovementType.EXPENSE,
+            ),
+            ids = listOf("sms-1", "transaction-1", "merchant-1"),
+            categorySuggestionService = object : CategorySuggestionService(database.learningSignalDao()) {
+                override suspend fun suggestFor(
+                    transaction: com.kevin.financeguardian.domain.model.Transaction,
+                ): LearningSuggestion = LearningSuggestion(
+                    suggestedCategoryId = "food",
+                    suggestedMoneyMovementType = MoneyMovementType.EXPENSE,
+                    confidence = 0.95f,
+                    reasons = listOf("matched merchant history"),
+                )
+            },
+        )
+
+        service.ingest(envelope)
+
+        assertEquals("food", database.transactionDao().getById("transaction-1")?.categoryId)
+    }
+
+    @Test
+    fun parsedSmsDoesNotOverrideExplicitMerchantDefaultWithLearningSuggestion() = runTest {
+        insertMerchant(
+            id = "merchant-1",
+            displayName = "Sample Sender",
+            normalizedName = "sample sender",
+            phone = null,
+            defaultCategoryId = "income",
+        )
+        val service = service(
+            parserResult = parsedResult(),
+            ids = listOf("sms-1", "transaction-1"),
+            categorySuggestionService = object : CategorySuggestionService(database.learningSignalDao()) {
+                override suspend fun suggestFor(
+                    transaction: com.kevin.financeguardian.domain.model.Transaction,
+                ): LearningSuggestion = LearningSuggestion(
+                    suggestedCategoryId = "food",
+                    suggestedMoneyMovementType = MoneyMovementType.EXPENSE,
+                    confidence = 0.95f,
+                    reasons = listOf("matched merchant history"),
+                )
+            },
         )
 
         service.ingest(envelope)
@@ -175,6 +255,7 @@ class SmsIngestionServiceTest {
                 merchantDao = database.merchantDao(),
                 idGenerator = FakeIdGenerator(emptyList()),
             ),
+            categorySuggestionService = object : CategorySuggestionService(database.learningSignalDao()) {},
             notificationDispatcher = NoOpNotificationDispatcher,
         )
 
@@ -210,6 +291,16 @@ class SmsIngestionServiceTest {
     private fun service(
         parserResult: SmsParseResult,
         ids: List<String>,
+        categorySuggestionService: CategorySuggestionService = object : CategorySuggestionService(database.learningSignalDao()) {
+            override suspend fun suggestFor(
+                transaction: com.kevin.financeguardian.domain.model.Transaction,
+            ): LearningSuggestion = LearningSuggestion(
+                suggestedCategoryId = null,
+                suggestedMoneyMovementType = null,
+                confidence = 0f,
+                reasons = emptyList(),
+            )
+        },
     ): SmsIngestionService {
         val idGenerator = FakeIdGenerator(ids)
         return SmsIngestionService(
@@ -223,6 +314,7 @@ class SmsIngestionServiceTest {
                 merchantDao = database.merchantDao(),
                 idGenerator = idGenerator,
             ),
+            categorySuggestionService = categorySuggestionService,
             notificationDispatcher = NoOpNotificationDispatcher,
         )
     }
@@ -248,17 +340,23 @@ class SmsIngestionServiceTest {
         )
     }
 
-    private fun parsedResult(): SmsParseResult.Parsed =
+    private fun parsedResult(
+        providerTransactionId: String = "123",
+        counterpartyName: String = "SAMPLE SENDER",
+        direction: TransactionDirection = TransactionDirection.CREDIT,
+        moneyMovementType: MoneyMovementType = MoneyMovementType.INCOME,
+    ): SmsParseResult.Parsed =
         SmsParseResult.Parsed(
             transaction = ParsedTransaction(
                 provider = Provider.MTN_MOMO,
                 rawSender = envelope.sender,
+                providerTransactionId = providerTransactionId,
                 occurredAt = receivedAt,
-                direction = TransactionDirection.CREDIT,
-                moneyMovementType = MoneyMovementType.INCOME,
+                direction = direction,
+                moneyMovementType = moneyMovementType,
                 amountMinor = 7700,
                 currency = "GHS",
-                counterpartyName = "SAMPLE SENDER",
+                counterpartyName = counterpartyName,
                 counterpartyPhone = null,
                 reference = "R",
                 balanceAfterMinor = 53801,
@@ -276,6 +374,7 @@ class SmsIngestionServiceTest {
             provider = Provider.MTN_MOMO,
             rawSender = envelope.sender,
             rawBodyHash = "existing-hash",
+            dedupeKey = "existing-key",
             occurredAt = receivedAt,
             direction = TransactionDirection.CREDIT,
             moneyMovementType = MoneyMovementType.INCOME,

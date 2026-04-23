@@ -10,6 +10,7 @@ import com.kevin.financeguardian.domain.parser.balanceAfter
 import com.kevin.financeguardian.domain.parser.parseAmountMinor
 import com.kevin.financeguardian.domain.parser.parseDateAndTimeInstant
 import com.kevin.financeguardian.domain.parser.parsedResult
+import com.kevin.financeguardian.domain.parser.providerTransactionIdAfter
 import com.kevin.financeguardian.domain.parser.referenceAfter
 
 class TelecelCashParser : ProviderParser {
@@ -30,6 +31,7 @@ class TelecelCashParser : ProviderParser {
         return parsedResult(
             provider = provider,
             input = input,
+            providerTransactionId = providerTransactionIdAfter(body),
             occurredAt = parseDateAndTimeInstant(match.groupValues[4], match.groupValues[5]) ?: input.receivedAt,
             direction = TransactionDirection.DEBIT,
             moneyMovementType = MoneyMovementType.EXPENSE,
@@ -49,6 +51,7 @@ class TelecelCashParser : ProviderParser {
         return parsedResult(
             provider = provider,
             input = input,
+            providerTransactionId = providerTransactionIdAfter(body),
             occurredAt = parseDateAndTimeInstant(match.groupValues[3], match.groupValues[4]) ?: input.receivedAt,
             direction = TransactionDirection.DEBIT,
             moneyMovementType = MoneyMovementType.EXPENSE,
@@ -67,6 +70,7 @@ class TelecelCashParser : ProviderParser {
         return parsedResult(
             provider = provider,
             input = input,
+            providerTransactionId = providerTransactionIdAfter(body),
             occurredAt = parseDateAndTimeInstant(match.groupValues[4], match.groupValues[5]) ?: input.receivedAt,
             direction = TransactionDirection.CREDIT,
             moneyMovementType = MoneyMovementType.INCOME,
@@ -86,11 +90,13 @@ class TelecelCashParser : ProviderParser {
         return parsedResult(
             provider = provider,
             input = input,
+            providerTransactionId = providerTransactionIdAfter(body),
             occurredAt = parseDateAndTimeInstant(match.groupValues[2], match.groupValues[3]) ?: input.receivedAt,
             direction = TransactionDirection.DEBIT,
             moneyMovementType = MoneyMovementType.EXPENSE,
             amountMinor = parseAmountMinor(match.groupValues[1]) ?: return null,
             counterpartyName = "Data Bundle",
+            reference = "Bundle purchase",
             balanceAfterMinor = balanceAfter(telecelBalancePattern, body),
             confidence = 0.9f,
         )
@@ -103,12 +109,14 @@ class TelecelCashParser : ProviderParser {
         return parsedResult(
             provider = provider,
             input = input,
+            providerTransactionId = providerTransactionIdAfter(body),
             occurredAt = parseDateAndTimeInstant(match.groupValues[3], match.groupValues[4]) ?: input.receivedAt,
             direction = TransactionDirection.DEBIT,
             moneyMovementType = MoneyMovementType.EXPENSE,
             amountMinor = parseAmountMinor(match.groupValues[1]) ?: return null,
             counterpartyName = "Airtime",
             counterpartyPhone = match.groupValues[2],
+            reference = "Airtime purchase",
             balanceAfterMinor = balanceAfter(telecelBalancePattern, body),
             confidence = 0.9f,
         )
@@ -120,10 +128,12 @@ class TelecelCashParser : ProviderParser {
         return parsedResult(
             provider = provider,
             input = input,
+            providerTransactionId = providerTransactionIdAfter(body),
             direction = TransactionDirection.CREDIT,
             moneyMovementType = MoneyMovementType.INCOME,
             amountMinor = parseAmountMinor(match.groupValues[1]) ?: return null,
             counterpartyName = "Telecel Cash Interest",
+            reference = "Interest earned",
             balanceAfterMinor = balanceAfter(interestBalancePattern, body),
             confidence = 0.85f,
         )

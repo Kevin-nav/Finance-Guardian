@@ -8,6 +8,8 @@ data class Transaction(
     val provider: Provider,
     val rawSender: String,
     val rawBodyHash: String,
+    val providerTransactionId: String? = null,
+    val dedupeKey: String? = null,
     val occurredAt: Instant,
     val direction: TransactionDirection,
     val moneyMovementType: MoneyMovementType,

@@ -11,6 +11,7 @@ import com.kevin.financeguardian.domain.parser.parseAmountMinor
 import com.kevin.financeguardian.domain.parser.parseDateTimeInstant
 import com.kevin.financeguardian.domain.parser.parseMtnCompactInstant
 import com.kevin.financeguardian.domain.parser.parsedResult
+import com.kevin.financeguardian.domain.parser.providerTransactionIdAfter
 import com.kevin.financeguardian.domain.parser.referenceAfter
 
 class MtnMomoParser : ProviderParser {
@@ -30,6 +31,7 @@ class MtnMomoParser : ProviderParser {
         return parsedResult(
             provider = provider,
             input = input,
+            providerTransactionId = providerTransactionIdAfter(body),
             occurredAt = parseDateTimeInstant(match.groupValues[3]) ?: input.receivedAt,
             direction = TransactionDirection.DEBIT,
             moneyMovementType = MoneyMovementType.EXPENSE,
@@ -47,6 +49,7 @@ class MtnMomoParser : ProviderParser {
         return parsedResult(
             provider = provider,
             input = input,
+            providerTransactionId = providerTransactionIdAfter(body),
             direction = TransactionDirection.DEBIT,
             moneyMovementType = MoneyMovementType.EXPENSE,
             amountMinor = parseAmountMinor(match.groupValues[1]) ?: return null,
@@ -63,6 +66,7 @@ class MtnMomoParser : ProviderParser {
         return parsedResult(
             provider = provider,
             input = input,
+            providerTransactionId = providerTransactionIdAfter(body),
             direction = TransactionDirection.DEBIT,
             moneyMovementType = MoneyMovementType.EXPENSE,
             amountMinor = parseAmountMinor(match.groupValues[1]) ?: return null,
@@ -80,6 +84,7 @@ class MtnMomoParser : ProviderParser {
         return parsedResult(
             provider = provider,
             input = input,
+            providerTransactionId = providerTransactionIdAfter(body),
             occurredAt = parseMtnCompactInstant(match.groupValues[3], input.receivedAt) ?: input.receivedAt,
             direction = TransactionDirection.DEBIT,
             moneyMovementType = MoneyMovementType.EXPENSE,
@@ -97,6 +102,7 @@ class MtnMomoParser : ProviderParser {
         return parsedResult(
             provider = provider,
             input = input,
+            providerTransactionId = providerTransactionIdAfter(body),
             direction = TransactionDirection.CREDIT,
             moneyMovementType = MoneyMovementType.INCOME,
             amountMinor = parseAmountMinor(match.groupValues[1]) ?: return null,

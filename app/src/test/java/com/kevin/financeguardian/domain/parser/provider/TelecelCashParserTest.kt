@@ -27,6 +27,7 @@ class TelecelCashParserTest {
         assertEquals("SAMPLE RECIPIENT", parsed.transaction.counterpartyName)
         assertEquals("0240000000", parsed.transaction.counterpartyPhone)
         assertEquals("snacks", parsed.transaction.reference)
+        assertEquals("000001", parsed.transaction.providerTransactionId)
         assertEquals(7639L, parsed.transaction.balanceAfterMinor)
     }
 
@@ -75,6 +76,7 @@ class TelecelCashParserTest {
         assertEquals(TransactionDirection.DEBIT, parsed.transaction.direction)
         assertEquals(550, parsed.transaction.amountMinor)
         assertEquals("Data Bundle", parsed.transaction.counterpartyName)
+        assertEquals("Bundle purchase", parsed.transaction.reference)
     }
 
     @Test
@@ -86,6 +88,7 @@ class TelecelCashParserTest {
         assertEquals(100, parsed.transaction.amountMinor)
         assertEquals("Airtime", parsed.transaction.counterpartyName)
         assertEquals("233000000000", parsed.transaction.counterpartyPhone)
+        assertEquals("Airtime purchase", parsed.transaction.reference)
     }
 
     @Test
