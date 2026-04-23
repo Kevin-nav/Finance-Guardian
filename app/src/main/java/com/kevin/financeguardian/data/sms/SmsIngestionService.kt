@@ -3,6 +3,9 @@ package com.kevin.financeguardian.data.sms
 import android.database.sqlite.SQLiteConstraintException
 import androidx.room.withTransaction
 import com.kevin.financeguardian.core.id.IdGenerator
+import com.kevin.financeguardian.core.notifications.NotificationDispatcher
+import com.kevin.financeguardian.core.notifications.NotificationEvent
+import com.kevin.financeguardian.core.notifications.NoOpNotificationDispatcher
 import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.local.FinanceGuardianDatabase
 import com.kevin.financeguardian.data.local.dao.SmsMessageRecordDao
@@ -25,6 +28,7 @@ class SmsIngestionService @Inject constructor(
     private val idGenerator: IdGenerator,
     private val clock: AppClock,
     private val merchantCategoryResolver: MerchantCategoryResolver,
+    private val notificationDispatcher: NotificationDispatcher = NoOpNotificationDispatcher(),
 ) {
     suspend fun ingest(envelope: SmsMessageEnvelope): SmsIngestionResult {
         val bodyHash = BodyHasher.sha256Hex(envelope.body)
@@ -45,40 +49,51 @@ class SmsIngestionService @Inject constructor(
             ),
         )
 
-        return database.withTransaction {
+        val persisted = database.withTransaction {
             val transactionDuplicate = smsMessageRecordDao.findDuplicate(
                 sender = envelope.sender,
                 bodyHash = bodyHash,
                 receivedAt = envelope.receivedAt,
             )
             if (transactionDuplicate != null) {
-                SmsIngestionResult.Duplicate(transactionDuplicate.id)
+                ParsedPersistence(
+                    ingestionResult = SmsIngestionResult.Duplicate(transactionDuplicate.id),
+                    notificationEvent = null,
+                )
             } else {
                 when (result) {
                     is SmsParseResult.Parsed -> persistParsed(envelope, bodyHash, result)
-                    is SmsParseResult.Ignored -> persistNonParsed(
-                        envelope = envelope,
-                        bodyHash = bodyHash,
-                        status = ParseStatus.IGNORED,
-                        reason = result.reason,
+                    is SmsParseResult.Ignored -> ParsedPersistence(
+                        ingestionResult = persistNonParsed(
+                            envelope = envelope,
+                            bodyHash = bodyHash,
+                            status = ParseStatus.IGNORED,
+                            reason = result.reason,
+                        ),
+                        notificationEvent = null,
                     )
 
-                    is SmsParseResult.Failed -> persistNonParsed(
-                        envelope = envelope,
-                        bodyHash = bodyHash,
-                        status = ParseStatus.FAILED,
-                        reason = result.reason,
+                    is SmsParseResult.Failed -> ParsedPersistence(
+                        ingestionResult = persistNonParsed(
+                            envelope = envelope,
+                            bodyHash = bodyHash,
+                            status = ParseStatus.FAILED,
+                            reason = result.reason,
+                        ),
+                        notificationEvent = null,
                     )
                 }
             }
         }
+        persisted.notificationEvent?.let { notificationDispatcher.dispatch(it) }
+        return persisted.ingestionResult
     }
 
     private suspend fun persistParsed(
         envelope: SmsMessageEnvelope,
         bodyHash: String,
         result: SmsParseResult.Parsed,
-    ): SmsIngestionResult {
+    ): ParsedPersistence {
         val now = clock.now()
         val smsRecordId = idGenerator.newId()
         val transactionId = idGenerator.newId()
@@ -97,7 +112,12 @@ class SmsIngestionService @Inject constructor(
             bodyHash = bodyHash,
             receivedAt = envelope.receivedAt,
         )
-        if (duplicateId != null) return SmsIngestionResult.Duplicate(duplicateId)
+        if (duplicateId != null) {
+            return ParsedPersistence(
+                ingestionResult = SmsIngestionResult.Duplicate(duplicateId),
+                notificationEvent = null,
+            )
+        }
 
         val parsed = result.transaction
         val categoryId = merchantCategoryResolver.resolveForParsedTransaction(
@@ -129,7 +149,14 @@ class SmsIngestionService @Inject constructor(
             ),
         )
 
-        return SmsIngestionResult.Parsed(smsRecordId, transactionId)
+        return ParsedPersistence(
+            ingestionResult = SmsIngestionResult.Parsed(smsRecordId, transactionId),
+            notificationEvent = parsed.toNotificationEvent(
+                transactionId = transactionId,
+                categoryId = categoryId,
+                confidence = result.confidence,
+            ),
+        )
     }
 
     private suspend fun persistNonParsed(
@@ -180,5 +207,39 @@ class SmsIngestionService @Inject constructor(
             if (duplicate != null) return duplicate.id
             throw error
         }
+    }
+
+    private fun com.kevin.financeguardian.domain.parser.ParsedTransaction.toNotificationEvent(
+        transactionId: String,
+        categoryId: String?,
+        confidence: Float,
+    ): NotificationEvent {
+        val needsReview = confidence < REVIEW_CONFIDENCE_THRESHOLD || categoryId == null
+        return if (needsReview) {
+            NotificationEvent.TransactionNeedsReview(
+                transactionId = transactionId,
+                amountMinor = amountMinor,
+                currency = currency,
+                merchantName = counterpartyName,
+                occurredAt = occurredAt,
+            )
+        } else {
+            NotificationEvent.TransactionDetected(
+                transactionId = transactionId,
+                amountMinor = amountMinor,
+                currency = currency,
+                merchantName = counterpartyName,
+                occurredAt = occurredAt,
+            )
+        }
+    }
+
+    private data class ParsedPersistence(
+        val ingestionResult: SmsIngestionResult,
+        val notificationEvent: NotificationEvent?,
+    )
+
+    private companion object {
+        const val REVIEW_CONFIDENCE_THRESHOLD = 0.85f
     }
 }

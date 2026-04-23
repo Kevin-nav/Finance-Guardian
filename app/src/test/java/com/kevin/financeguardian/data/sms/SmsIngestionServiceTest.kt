@@ -4,6 +4,8 @@ import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.kevin.financeguardian.core.id.IdGenerator
+import com.kevin.financeguardian.core.notifications.NotificationDispatcher
+import com.kevin.financeguardian.core.notifications.NotificationEvent
 import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.local.FinanceGuardianDatabase
 import com.kevin.financeguardian.data.local.entity.MerchantEntity
@@ -173,6 +175,7 @@ class SmsIngestionServiceTest {
                 merchantDao = database.merchantDao(),
                 idGenerator = FakeIdGenerator(emptyList()),
             ),
+            notificationDispatcher = NoOpNotificationDispatcher,
         )
 
         val result = duplicateService.ingest(envelope)
@@ -220,6 +223,7 @@ class SmsIngestionServiceTest {
                 merchantDao = database.merchantDao(),
                 idGenerator = idGenerator,
             ),
+            notificationDispatcher = NoOpNotificationDispatcher,
         )
     }
 
@@ -307,5 +311,9 @@ class SmsIngestionServiceTest {
 
     private class FixedClock(private val instant: Instant) : AppClock {
         override fun now(): Instant = instant
+    }
+
+    private object NoOpNotificationDispatcher : NotificationDispatcher {
+        override suspend fun dispatch(event: NotificationEvent) = Unit
     }
 }
