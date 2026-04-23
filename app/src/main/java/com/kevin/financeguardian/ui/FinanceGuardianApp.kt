@@ -11,6 +11,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
@@ -31,8 +33,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -46,6 +51,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.kevin.financeguardian.core.notifications.InAppNoticeManager
 import com.kevin.financeguardian.feature.categories.CategoriesRoute
 import com.kevin.financeguardian.feature.categories.CategoryDetailRoute
 import com.kevin.financeguardian.feature.insights.InsightsRoute
@@ -53,7 +59,12 @@ import com.kevin.financeguardian.feature.onboarding.OnboardingRoute
 import com.kevin.financeguardian.feature.security.AppLockRoute
 import com.kevin.financeguardian.feature.settings.SettingsRoute
 import com.kevin.financeguardian.feature.transactions.TransactionsRoute
+import com.kevin.financeguardian.ui.components.InAppNoticeHost
 import com.kevin.financeguardian.ui.theme.spacing
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 
 typealias AuthenticateAppLock = (
     onSuccess: () -> Unit,
@@ -74,6 +85,7 @@ fun FinanceGuardianApp(
     onAuthenticate: AuthenticateAppLock = { onSuccess, _, _ -> onSuccess() },
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val noticeManager = rememberInAppNoticeManager()
     val smsPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) {
@@ -114,53 +126,84 @@ fun FinanceGuardianApp(
         }
     }
 
-    AnimatedContent(
-        targetState = currentScreen,
-        transitionSpec = {
-            (fadeIn(tween(300))).togetherWith(fadeOut(tween(200)))
-        },
-        label = "app_screen_transition",
-    ) { screen ->
-        when (screen) {
-            AppScreen.Onboarding -> {
-                OnboardingRoute(
-                    modifier = modifier,
-                    onRequestSmsPermission = {
-                        smsPermissionLauncher.launch(Manifest.permission.RECEIVE_SMS)
-                    },
-                    onRequestNotificationPermission = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            viewModel.refreshPermissions()
-                        }
-                    },
-                    onSetUpLater = viewModel::completeOnboarding,
-                )
-            }
-            AppScreen.Lock -> {
-                AppLockRoute(
-                    modifier = modifier,
-                    onUnlockClick = ::authenticate,
-                )
-            }
-            AppScreen.Main -> {
-                MainAppContent(
-                    modifier = modifier,
-                    smsPermissionLauncher = {
-                        smsPermissionLauncher.launch(Manifest.permission.RECEIVE_SMS)
-                    },
-                    notificationPermissionLauncher = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            viewModel.refreshPermissions()
-                        }
-                    },
-                )
+    Box(
+        modifier = modifier.fillMaxSize(),
+    ) {
+        AnimatedContent(
+            targetState = currentScreen,
+            transitionSpec = {
+                (fadeIn(tween(300))).togetherWith(fadeOut(tween(200)))
+            },
+            label = "app_screen_transition",
+        ) { screen ->
+            when (screen) {
+                AppScreen.Onboarding -> {
+                    OnboardingRoute(
+                        modifier = Modifier.fillMaxSize(),
+                        onRequestSmsPermission = {
+                            smsPermissionLauncher.launch(Manifest.permission.RECEIVE_SMS)
+                        },
+                        onRequestNotificationPermission = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                viewModel.refreshPermissions()
+                            }
+                        },
+                        onSetUpLater = viewModel::completeOnboarding,
+                    )
+                }
+                AppScreen.Lock -> {
+                    AppLockRoute(
+                        modifier = Modifier.fillMaxSize(),
+                        onUnlockClick = ::authenticate,
+                    )
+                }
+                AppScreen.Main -> {
+                    MainAppContent(
+                        modifier = Modifier.fillMaxSize(),
+                        smsPermissionLauncher = {
+                            smsPermissionLauncher.launch(Manifest.permission.RECEIVE_SMS)
+                        },
+                        notificationPermissionLauncher = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                viewModel.refreshPermissions()
+                            }
+                        },
+                    )
+                }
             }
         }
+
+        InAppNoticeHost(
+            noticeManager = noticeManager,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(
+                    horizontal = MaterialTheme.spacing.md,
+                    vertical = MaterialTheme.spacing.sm,
+                ),
+        )
     }
+}
+
+@Composable
+private fun rememberInAppNoticeManager(): InAppNoticeManager {
+    val appContext = LocalContext.current.applicationContext
+    return remember(appContext) {
+        EntryPointAccessors.fromApplication(
+            appContext,
+            InAppNoticeManagerEntryPoint::class.java,
+        ).inAppNoticeManager()
+    }
+}
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+private interface InAppNoticeManagerEntryPoint {
+    fun inAppNoticeManager(): InAppNoticeManager
 }
 
 @Composable
