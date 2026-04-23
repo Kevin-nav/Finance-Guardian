@@ -37,6 +37,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -191,13 +193,7 @@ private fun MainAppContent(
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
-                            navController.navigate(destination.route) {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
+                            navController.navigateToTopLevelDestination(destination)
                         },
                         icon = {
                             Icon(
@@ -255,10 +251,7 @@ private fun MainAppContent(
             composable(FinanceGuardianDestination.Home.route) {
                 TransactionsRoute(
                     onViewInsightsClick = {
-                        navController.navigate(FinanceGuardianDestination.Insights.route) {
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        navController.navigateToTopLevelDestination(FinanceGuardianDestination.Insights)
                     },
                 )
             }
@@ -275,6 +268,26 @@ private fun MainAppContent(
                 )
             }
         }
+    }
+}
+
+private fun NavHostController.navigateToTopLevelDestination(
+    destination: FinanceGuardianDestination,
+) {
+    if (currentDestination?.route == destination.route) return
+
+    if (destination == FinanceGuardianDestination.Home &&
+        popBackStack(FinanceGuardianDestination.Home.route, inclusive = false, saveState = true)
+    ) {
+        return
+    }
+
+    navigate(destination.route) {
+        popUpTo(graph.findStartDestination().id) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = true
     }
 }
 

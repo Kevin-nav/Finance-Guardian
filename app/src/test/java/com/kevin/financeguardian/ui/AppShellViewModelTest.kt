@@ -53,7 +53,7 @@ class AppShellViewModelTest {
     }
 
     @Test
-    fun smsPermissionResultCompletesOnboardingAndRefreshesPermissions() = runTest {
+    fun smsPermissionResultRefreshesPermissionsWithoutCompletingOnboarding() = runTest {
         val checker = FakePermissionStatusChecker()
         val viewModel = viewModel(checker = checker)
 
@@ -66,7 +66,8 @@ class AppShellViewModelTest {
 
         val state = viewModel.uiState.value
 
-        assertTrue(state.onboardingCompleted)
+        assertFalse(state.onboardingCompleted)
+        assertTrue(state.shouldShowOnboarding)
         assertTrue(state.permissions.receiveSmsGranted)
     }
 

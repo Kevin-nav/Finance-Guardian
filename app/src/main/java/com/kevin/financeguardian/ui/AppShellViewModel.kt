@@ -48,7 +48,7 @@ class AppShellViewModel @Inject constructor(
     }
 
     fun onSmsPermissionResult() {
-        completeOnboarding()
+        refreshPermissions()
     }
 
     fun refreshPermissions() {

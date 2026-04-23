@@ -1,7 +1,6 @@
 package com.kevin.financeguardian.feature.onboarding
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -68,54 +67,84 @@ fun OnboardingRoute(
 ) {
     var currentPage by remember { mutableIntStateOf(0) }
 
-    AnimatedContent(
-        targetState = currentPage,
-        transitionSpec = {
-            if (targetState > initialState) {
-                (slideInHorizontally { it / 3 } + fadeIn(tween(300)))
-                    .togetherWith(slideOutHorizontally { -it / 3 } + fadeOut(tween(200)))
-            } else {
-                (slideInHorizontally { -it / 3 } + fadeIn(tween(300)))
-                    .togetherWith(slideOutHorizontally { it / 3 } + fadeOut(tween(200)))
+    val actions = when (currentPage) {
+        0 -> OnboardingPageActions(
+            primaryButtonText = "Get Started",
+            onPrimaryClick = { currentPage = 1 },
+            secondaryButtonText = "Skip setup",
+            onSecondaryClick = onSetUpLater,
+        )
+        1 -> OnboardingPageActions(
+            primaryButtonText = "Enable SMS Access",
+            onPrimaryClick = {
+                onRequestSmsPermission()
+                currentPage = 2
+            },
+            secondaryButtonText = "Set up later",
+            onSecondaryClick = { currentPage = 2 },
+            showBackButton = true,
+            onBackClick = { currentPage = 0 },
+        )
+        else -> OnboardingPageActions(
+            primaryButtonText = "Enable Notifications",
+            onPrimaryClick = {
+                onRequestNotificationPermission()
+                onSetUpLater()
+            },
+            secondaryButtonText = "Skip for now",
+            onSecondaryClick = onSetUpLater,
+            showBackButton = true,
+            onBackClick = { currentPage = 1 },
+        )
+    }
+
+    OnboardingPageScaffold(
+        modifier = modifier,
+        currentPage = currentPage,
+        primaryButtonText = actions.primaryButtonText,
+        onPrimaryClick = actions.onPrimaryClick,
+        secondaryButtonText = actions.secondaryButtonText,
+        onSecondaryClick = actions.onSecondaryClick,
+        showBackButton = actions.showBackButton,
+        onBackClick = actions.onBackClick,
+    ) {
+        AnimatedContent(
+            targetState = currentPage,
+            modifier = Modifier.fillMaxSize(),
+            transitionSpec = {
+                if (targetState > initialState) {
+                    (slideInHorizontally { it / 3 } + fadeIn(tween(300)))
+                        .togetherWith(slideOutHorizontally { -it / 3 } + fadeOut(tween(200)))
+                } else {
+                    (slideInHorizontally { -it / 3 } + fadeIn(tween(300)))
+                        .togetherWith(slideOutHorizontally { it / 3 } + fadeOut(tween(200)))
+                }
+            },
+            label = "onboarding_page_body",
+        ) { page ->
+            when (page) {
+                0 -> WelcomePageContent(modifier = Modifier.fillMaxSize())
+                1 -> SmsPermissionPageContent(modifier = Modifier.fillMaxSize())
+                else -> NotificationPageContent(modifier = Modifier.fillMaxSize())
             }
-        },
-        label = "onboarding_page",
-    ) { page ->
-        when (page) {
-            0 -> WelcomePage(
-                modifier = modifier,
-                currentPage = 0,
-                onNext = { currentPage = 1 },
-                onSkip = onSetUpLater,
-            )
-            1 -> SmsPermissionPage(
-                modifier = modifier,
-                currentPage = 1,
-                onRequestPermission = onRequestSmsPermission,
-                onNext = { currentPage = 2 },
-                onBack = { currentPage = 0 },
-                onSkip = { currentPage = 2 },
-            )
-            2 -> NotificationPage(
-                modifier = modifier,
-                currentPage = 2,
-                onRequestPermission = onRequestNotificationPermission,
-                onComplete = onSetUpLater,
-                onBack = { currentPage = 1 },
-                onSkip = onSetUpLater,
-            )
         }
     }
 }
 
+private data class OnboardingPageActions(
+    val primaryButtonText: String,
+    val onPrimaryClick: () -> Unit,
+    val secondaryButtonText: String,
+    val onSecondaryClick: () -> Unit,
+    val showBackButton: Boolean = false,
+    val onBackClick: () -> Unit = {},
+)
+
 // ── Page 1: Welcome ─────────────────────────────────────────────────────────
 
 @Composable
-private fun WelcomePage(
+private fun WelcomePageContent(
     modifier: Modifier = Modifier,
-    currentPage: Int,
-    onNext: () -> Unit,
-    onSkip: () -> Unit,
 ) {
     val spacing = MaterialTheme.spacing
 
@@ -139,14 +168,7 @@ private fun WelcomePage(
         label = "welcome_glow",
     )
 
-    OnboardingPageScaffold(
-        modifier = modifier,
-        currentPage = currentPage,
-        primaryButtonText = "Get Started",
-        onPrimaryClick = onNext,
-        secondaryButtonText = "Skip setup",
-        onSecondaryClick = onSkip,
-    ) {
+    OnboardingContentColumn(modifier = modifier) {
         Spacer(modifier = Modifier.height(spacing.xxl))
         Spacer(modifier = Modifier.height(spacing.xl))
 
@@ -223,13 +245,8 @@ private fun WelcomePage(
 // ── Page 2: SMS Permission ──────────────────────────────────────────────────
 
 @Composable
-private fun SmsPermissionPage(
+private fun SmsPermissionPageContent(
     modifier: Modifier = Modifier,
-    currentPage: Int,
-    onRequestPermission: () -> Unit,
-    onNext: () -> Unit,
-    onBack: () -> Unit,
-    onSkip: () -> Unit,
 ) {
     val spacing = MaterialTheme.spacing
 
@@ -253,19 +270,7 @@ private fun SmsPermissionPage(
         label = "sms_glow",
     )
 
-    OnboardingPageScaffold(
-        modifier = modifier,
-        currentPage = currentPage,
-        primaryButtonText = "Enable SMS Access",
-        onPrimaryClick = {
-            onRequestPermission()
-            onNext()
-        },
-        secondaryButtonText = "Set up later",
-        onSecondaryClick = onSkip,
-        showBackButton = true,
-        onBackClick = onBack,
-    ) {
+    OnboardingContentColumn(modifier = modifier) {
         Spacer(modifier = Modifier.height(spacing.xxl))
         Spacer(modifier = Modifier.height(spacing.xl))
 
@@ -336,13 +341,8 @@ private fun SmsPermissionPage(
 // ── Page 3: Notifications ───────────────────────────────────────────────────
 
 @Composable
-private fun NotificationPage(
+private fun NotificationPageContent(
     modifier: Modifier = Modifier,
-    currentPage: Int,
-    onRequestPermission: () -> Unit,
-    onComplete: () -> Unit,
-    onBack: () -> Unit,
-    onSkip: () -> Unit,
 ) {
     val spacing = MaterialTheme.spacing
 
@@ -366,19 +366,7 @@ private fun NotificationPage(
         label = "notif_glow",
     )
 
-    OnboardingPageScaffold(
-        modifier = modifier,
-        currentPage = currentPage,
-        primaryButtonText = "Enable Notifications",
-        onPrimaryClick = {
-            onRequestPermission()
-            onComplete()
-        },
-        secondaryButtonText = "Skip for now",
-        onSecondaryClick = onSkip,
-        showBackButton = true,
-        onBackClick = onBack,
-    ) {
+    OnboardingContentColumn(modifier = modifier) {
         Spacer(modifier = Modifier.height(spacing.xxl))
         Spacer(modifier = Modifier.height(spacing.xl))
 
@@ -448,6 +436,22 @@ private fun NotificationPage(
 // ── Shared Scaffolding ──────────────────────────────────────────────────────
 
 @Composable
+private fun OnboardingContentColumn(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        content()
+        Spacer(modifier = Modifier.height(MaterialTheme.spacing.lg))
+    }
+}
+
+@Composable
 private fun OnboardingPageScaffold(
     modifier: Modifier = Modifier,
     currentPage: Int,
@@ -464,13 +468,16 @@ private fun OnboardingPageScaffold(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(horizontal = spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        content()
-
-        Spacer(modifier = Modifier.weight(1f))
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+        ) {
+            content()
+        }
 
         // Page indicator dots
         PageIndicator(currentPage = currentPage, totalPages = 3)
