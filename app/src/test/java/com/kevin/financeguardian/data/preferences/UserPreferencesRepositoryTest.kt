@@ -26,6 +26,9 @@ class UserPreferencesRepositoryTest {
                 screenPrivacyEnabled = false,
                 debugParserModeEnabled = false,
                 onboardingCompleted = false,
+                notificationsEnabled = true,
+                proactiveInsightsEnabled = true,
+                showAmountsOnLockScreen = true,
             ),
             repository.preferences.first(),
         )
@@ -65,6 +68,33 @@ class UserPreferencesRepositoryTest {
         repository.setOnboardingCompleted(true)
 
         assertEquals(true, repository.preferences.first().onboardingCompleted)
+    }
+
+    @Test
+    fun setNotificationsEnabledPersists() = runTest {
+        val repository = repository("notifications.preferences_pb")
+
+        repository.setNotificationsEnabled(false)
+
+        assertEquals(false, repository.preferences.first().notificationsEnabled)
+    }
+
+    @Test
+    fun setProactiveInsightsEnabledPersists() = runTest {
+        val repository = repository("proactive-insights.preferences_pb")
+
+        repository.setProactiveInsightsEnabled(false)
+
+        assertEquals(false, repository.preferences.first().proactiveInsightsEnabled)
+    }
+
+    @Test
+    fun setShowAmountsOnLockScreenPersists() = runTest {
+        val repository = repository("lock-screen-amounts.preferences_pb")
+
+        repository.setShowAmountsOnLockScreen(false)
+
+        assertEquals(false, repository.preferences.first().showAmountsOnLockScreen)
     }
 
     private fun repository(fileName: String): UserPreferencesRepository {

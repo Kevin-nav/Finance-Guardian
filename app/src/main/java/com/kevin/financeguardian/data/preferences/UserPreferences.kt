@@ -5,4 +5,7 @@ data class UserPreferences(
     val screenPrivacyEnabled: Boolean = false,
     val debugParserModeEnabled: Boolean = false,
     val onboardingCompleted: Boolean = false,
+    val notificationsEnabled: Boolean = true,
+    val proactiveInsightsEnabled: Boolean = true,
+    val showAmountsOnLockScreen: Boolean = true,
 )

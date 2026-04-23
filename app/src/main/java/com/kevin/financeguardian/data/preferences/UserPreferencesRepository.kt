@@ -17,6 +17,9 @@ class UserPreferencesRepository @Inject constructor(
             screenPrivacyEnabled = values[SCREEN_PRIVACY_ENABLED] ?: false,
             debugParserModeEnabled = values[DEBUG_PARSER_MODE_ENABLED] ?: false,
             onboardingCompleted = values[ONBOARDING_COMPLETED] ?: false,
+            notificationsEnabled = values[NOTIFICATIONS_ENABLED] ?: true,
+            proactiveInsightsEnabled = values[PROACTIVE_INSIGHTS_ENABLED] ?: true,
+            showAmountsOnLockScreen = values[SHOW_AMOUNTS_ON_LOCK_SCREEN] ?: true,
         )
     }
 
@@ -36,10 +39,25 @@ class UserPreferencesRepository @Inject constructor(
         dataStore.edit { values -> values[ONBOARDING_COMPLETED] = completed }
     }
 
+    suspend fun setNotificationsEnabled(enabled: Boolean) {
+        dataStore.edit { values -> values[NOTIFICATIONS_ENABLED] = enabled }
+    }
+
+    suspend fun setProactiveInsightsEnabled(enabled: Boolean) {
+        dataStore.edit { values -> values[PROACTIVE_INSIGHTS_ENABLED] = enabled }
+    }
+
+    suspend fun setShowAmountsOnLockScreen(enabled: Boolean) {
+        dataStore.edit { values -> values[SHOW_AMOUNTS_ON_LOCK_SCREEN] = enabled }
+    }
+
     private companion object {
         val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
         val SCREEN_PRIVACY_ENABLED = booleanPreferencesKey("screen_privacy_enabled")
         val DEBUG_PARSER_MODE_ENABLED = booleanPreferencesKey("debug_parser_mode_enabled")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+        val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
+        val PROACTIVE_INSIGHTS_ENABLED = booleanPreferencesKey("proactive_insights_enabled")
+        val SHOW_AMOUNTS_ON_LOCK_SCREEN = booleanPreferencesKey("show_amounts_on_lock_screen")
     }
 }
