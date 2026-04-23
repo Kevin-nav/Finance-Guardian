@@ -67,6 +67,7 @@ private fun getEmptyMessage(receiveSmsGranted: Boolean): String =
 fun TransactionsRoute(
     modifier: Modifier = Modifier,
     viewModel: TransactionsViewModel = hiltViewModel(),
+    onViewInsightsClick: () -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -138,9 +139,7 @@ fun TransactionsRoute(
 
         item(key = "quick_actions") {
             QuickActionRow(
-                onAddManualClick = { },
-                onScanHistoryClick = { },
-                onViewInsightsClick = { },
+                onViewInsightsClick = onViewInsightsClick,
                 modifier = Modifier.padding(vertical = spacing.xs),
             )
         }

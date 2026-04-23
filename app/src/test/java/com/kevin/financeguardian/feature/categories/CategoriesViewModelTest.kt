@@ -246,6 +246,10 @@ class CategoriesViewModelTest {
             )
         }
 
+        override suspend fun deleteAll() {
+            replace(emptyList())
+        }
+
         fun replace(next: List<CategoryEntity>) {
             categories.value = next.sortedBy { it.name }
         }

@@ -1,5 +1,9 @@
 package com.kevin.financeguardian.di
 
+import com.kevin.financeguardian.data.local.AppDataResetter
+import com.kevin.financeguardian.data.local.RoomAppDataResetter
+import com.kevin.financeguardian.data.fixture.SmsFixtureImportService
+import com.kevin.financeguardian.data.fixture.SmsFixtureImporter
 import com.kevin.financeguardian.data.repository.RoomTransactionRepository
 import com.kevin.financeguardian.data.repository.TransactionRepository
 import com.kevin.financeguardian.data.transaction.TransactionCorrectionApplier
@@ -23,4 +27,15 @@ abstract class RepositoryModule {
     abstract fun bindTransactionCorrectionApplier(
         service: TransactionCorrectionService,
     ): TransactionCorrectionApplier
+
+    @Binds
+    @Singleton
+    abstract fun bindAppDataResetter(
+        resetter: RoomAppDataResetter,
+    ): AppDataResetter
+
+    @Binds
+    abstract fun bindSmsFixtureImporter(
+        service: SmsFixtureImportService,
+    ): SmsFixtureImporter
 }

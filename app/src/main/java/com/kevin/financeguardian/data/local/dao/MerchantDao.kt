@@ -32,4 +32,7 @@ interface MerchantDao {
         defaultCategoryId: String?,
         updatedAt: Instant,
     )
+
+    @Query("DELETE FROM merchants")
+    suspend fun deleteAll()
 }

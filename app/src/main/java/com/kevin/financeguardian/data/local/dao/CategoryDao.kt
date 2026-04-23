@@ -32,4 +32,7 @@ interface CategoryDao {
         """,
     )
     suspend fun archive(categoryId: String, updatedAt: Instant)
+
+    @Query("DELETE FROM categories")
+    suspend fun deleteAll()
 }

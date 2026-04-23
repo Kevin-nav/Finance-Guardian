@@ -24,4 +24,7 @@ interface SmsMessageRecordDao {
         bodyHash: String,
         receivedAt: Instant,
     ): SmsMessageRecordEntity?
+
+    @Query("DELETE FROM sms_message_records")
+    suspend fun deleteAll()
 }

@@ -312,6 +312,10 @@ class TransactionsViewModelTest {
             )
         }
 
+        override suspend fun deleteAll() {
+            replace(emptyList())
+        }
+
         fun replace(next: List<CategoryEntity>) {
             categories.value = next.sortedBy { it.name }
         }

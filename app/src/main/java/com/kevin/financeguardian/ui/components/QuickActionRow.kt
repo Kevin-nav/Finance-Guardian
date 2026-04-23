@@ -26,12 +26,13 @@ import com.kevin.financeguardian.ui.theme.spacing
  */
 @Composable
 fun QuickActionRow(
-    onAddManualClick: () -> Unit,
-    onScanHistoryClick: () -> Unit,
-    onViewInsightsClick: () -> Unit,
+    onAddManualClick: (() -> Unit)? = null,
+    onScanHistoryClick: (() -> Unit)? = null,
+    onViewInsightsClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
+    if (onAddManualClick == null && onScanHistoryClick == null && onViewInsightsClick == null) return
 
     Row(
         modifier = modifier
@@ -39,21 +40,27 @@ fun QuickActionRow(
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
-        QuickActionChip(
-            icon = Icons.Filled.Add,
-            label = "Add Manual",
-            onClick = onAddManualClick,
-        )
-        QuickActionChip(
-            icon = Icons.Filled.History,
-            label = "Scan History",
-            onClick = onScanHistoryClick,
-        )
-        QuickActionChip(
-            icon = Icons.Filled.PieChart,
-            label = "View Insights",
-            onClick = onViewInsightsClick,
-        )
+        if (onAddManualClick != null) {
+            QuickActionChip(
+                icon = Icons.Filled.Add,
+                label = "Add Manual",
+                onClick = onAddManualClick,
+            )
+        }
+        if (onScanHistoryClick != null) {
+            QuickActionChip(
+                icon = Icons.Filled.History,
+                label = "Scan History",
+                onClick = onScanHistoryClick,
+            )
+        }
+        if (onViewInsightsClick != null) {
+            QuickActionChip(
+                icon = Icons.Filled.PieChart,
+                label = "View Insights",
+                onClick = onViewInsightsClick,
+            )
+        }
     }
 }
 

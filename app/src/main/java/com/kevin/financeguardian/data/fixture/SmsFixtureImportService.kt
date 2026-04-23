@@ -6,8 +6,8 @@ import javax.inject.Inject
 
 class SmsFixtureImportService @Inject constructor(
     private val ingestionService: SmsIngestionService,
-) {
-    suspend fun importJson(json: String): List<SmsFixtureImportResult> =
+) : SmsFixtureImporter {
+    override suspend fun importJson(json: String): List<SmsFixtureImportResult> =
         importFixtures(SmsFixtureJsonParser.parseMany(json))
 
     suspend fun importFixtures(fixtures: List<SmsFixture>): List<SmsFixtureImportResult> =

@@ -1,5 +1,7 @@
 package com.kevin.financeguardian.feature.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -57,7 +60,20 @@ fun SettingsRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val spacing = MaterialTheme.spacing
+    val context = LocalContext.current
     var showResetDialog by remember { mutableStateOf(false) }
+    val fixturePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            val json = context.contentResolver.openInputStream(uri)
+                ?.bufferedReader()
+                ?.use { it.readText() }
+            if (json != null) {
+                viewModel.importFixtureJson(json)
+            }
+        }
+    }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshPermissions()
@@ -91,9 +107,10 @@ fun SettingsRoute(
             confirmButton = {
                 Button(
                     onClick = {
-                        // TODO: perform actual reset
+                        viewModel.resetAllData()
                         showResetDialog = false
                     },
+                    enabled = !uiState.isResetInProgress,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error,
                         contentColor = MaterialTheme.colorScheme.onError,
@@ -182,6 +199,41 @@ fun SettingsRoute(
                 onCheckedChange = viewModel::setDebugParserModeEnabled,
             )
 
+            if (uiState.debugParserModeEnabled) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = spacing.xxs),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = spacing.xs),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Import SMS Fixtures",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "Load anonymized JSON through the SMS ingestion backend",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            fixturePicker.launch(arrayOf("application/json", "text/*"))
+                        },
+                    ) {
+                        Text("Import")
+                    }
+                }
+            }
+
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = spacing.xxs),
                 color = MaterialTheme.colorScheme.outlineVariant,
@@ -219,6 +271,7 @@ fun SettingsRoute(
                 }
                 Button(
                     onClick = { showResetDialog = true },
+                    enabled = !uiState.isResetInProgress,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
@@ -226,6 +279,15 @@ fun SettingsRoute(
                 ) {
                     Text("Reset")
                 }
+            }
+
+            uiState.dataActionMessage?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = spacing.xs),
+                )
             }
         }
 

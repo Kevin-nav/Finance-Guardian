@@ -41,4 +41,7 @@ interface TransactionDao {
         type: MoneyMovementType,
         updatedAt: Instant,
     )
+
+    @Query("DELETE FROM transactions")
+    suspend fun deleteAll()
 }

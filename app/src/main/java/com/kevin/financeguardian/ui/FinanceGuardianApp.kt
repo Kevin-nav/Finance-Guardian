@@ -253,7 +253,14 @@ private fun MainAppContent(
             },
         ) {
             composable(FinanceGuardianDestination.Home.route) {
-                TransactionsRoute()
+                TransactionsRoute(
+                    onViewInsightsClick = {
+                        navController.navigate(FinanceGuardianDestination.Insights.route) {
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
             }
             composable(FinanceGuardianDestination.Insights.route) {
                 InsightsRoute()

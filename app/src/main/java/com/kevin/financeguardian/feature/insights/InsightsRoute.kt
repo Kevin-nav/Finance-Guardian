@@ -13,13 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -34,7 +32,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kevin.financeguardian.ui.components.EmptyState
 import com.kevin.financeguardian.ui.components.MoneyText
 import com.kevin.financeguardian.ui.components.SpendingBreakdownRow
@@ -43,54 +42,20 @@ import com.kevin.financeguardian.ui.theme.MoneyTypography
 import com.kevin.financeguardian.ui.theme.extendedColors
 import com.kevin.financeguardian.ui.theme.spacing
 
-// ── Preview data ────────────────────────────────────────────────────────────
-
-private data class CategorySpending(
-    val name: String,
-    val amountMinor: Long,
-    val color: Color,
-)
-
-private data class LargeTransaction(
-    val merchantName: String,
-    val amountMinor: Long,
-    val isCredit: Boolean,
-    val date: String,
-)
-
-private val previewCategorySpending = listOf(
-    CategorySpending("Savings", 60000, Color(0xFF006590)),
-    CategorySpending("Food", 8500, Color(0xFFE67E22)),
-    CategorySpending("Subscriptions", 6500, Color(0xFF7D5800)),
-    CategorySpending("Airtime/Data", 5000, Color(0xFF9B59B6)),
-    CategorySpending("Laundry", 3500, Color(0xFF1ABC9C)),
-    CategorySpending("Transport", 1800, Color(0xFF3498DB)),
-)
-
-private val previewLargeTransactions = listOf(
-    LargeTransaction("Savings Account", 60000, false, "Mon, 14 Apr"),
-    LargeTransaction("MTN MoMo - Transfer", 20000, false, "Yesterday"),
-    LargeTransaction("Shoprite", 8500, false, "Today"),
-)
-
-private const val totalIncomeMinor = 570000L
-private const val totalExpensesMinor = 85300L
-private const val netCashFlowMinor = 484700L
-
-// ── Screen ──────────────────────────────────────────────────────────────────
-
 @Composable
-fun InsightsRoute(modifier: Modifier = Modifier) {
+fun InsightsRoute(
+    modifier: Modifier = Modifier,
+    viewModel: InsightsViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val spacing = MaterialTheme.spacing
     val ext = MaterialTheme.extendedColors
-    val totalSpend = remember { previewCategorySpending.sumOf { it.amountMinor } }
-    val hasData = previewCategorySpending.isNotEmpty()
+    val totalSpend = uiState.categorySpending.sumOf { it.amountMinor }
 
-    // Animate bar fill-in
     var animateBars by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { animateBars = true }
 
-    if (!hasData) {
+    if (!uiState.hasData) {
         Box(
             modifier = modifier
                 .fillMaxSize()
@@ -116,7 +81,6 @@ fun InsightsRoute(modifier: Modifier = Modifier) {
         ),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        // ── Header ──────────────────────────────────────────────────
         item(key = "header") {
             Column(modifier = Modifier.animateItem()) {
                 Text(
@@ -133,7 +97,6 @@ fun InsightsRoute(modifier: Modifier = Modifier) {
             }
         }
 
-        // ── Summary Cards ───────────────────────────────────────────
         item(key = "summary_cards") {
             Row(
                 modifier = Modifier
@@ -144,7 +107,7 @@ fun InsightsRoute(modifier: Modifier = Modifier) {
                 SummaryStatCard(
                     icon = Icons.AutoMirrored.Filled.TrendingUp,
                     label = "Income",
-                    amountMinor = totalIncomeMinor,
+                    amountMinor = uiState.incomeMinor,
                     tintColor = ext.income,
                     isCredit = true,
                     modifier = Modifier.weight(1f),
@@ -152,7 +115,7 @@ fun InsightsRoute(modifier: Modifier = Modifier) {
                 SummaryStatCard(
                     icon = Icons.AutoMirrored.Filled.TrendingDown,
                     label = "Spent",
-                    amountMinor = totalExpensesMinor,
+                    amountMinor = uiState.spendingMinor,
                     tintColor = ext.expense,
                     isCredit = false,
                     modifier = Modifier.weight(1f),
@@ -164,7 +127,7 @@ fun InsightsRoute(modifier: Modifier = Modifier) {
             SummaryStatCard(
                 icon = Icons.Filled.AccountBalanceWallet,
                 label = "Net Cash Flow",
-                amountMinor = netCashFlowMinor,
+                amountMinor = uiState.netCashFlowMinor,
                 tintColor = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -172,7 +135,6 @@ fun InsightsRoute(modifier: Modifier = Modifier) {
             )
         }
 
-        // ── Spending Breakdown ──────────────────────────────────────
         item(key = "breakdown_header") {
             Column(modifier = Modifier.animateItem()) {
                 Spacer(modifier = Modifier.height(spacing.xs))
@@ -200,8 +162,12 @@ fun InsightsRoute(modifier: Modifier = Modifier) {
                         .padding(spacing.sm),
                     verticalArrangement = Arrangement.spacedBy(spacing.sm),
                 ) {
-                    previewCategorySpending.forEachIndexed { index, category ->
-                        val rawFraction = if (totalSpend > 0) category.amountMinor.toFloat() / totalSpend else 0f
+                    uiState.categorySpending.forEachIndexed { index, category ->
+                        val rawFraction = if (totalSpend > 0) {
+                            category.amountMinor.toFloat() / totalSpend
+                        } else {
+                            0f
+                        }
                         val animatedFraction by animateFloatAsState(
                             targetValue = if (animateBars) rawFraction else 0f,
                             animationSpec = tween(
@@ -215,9 +181,9 @@ fun InsightsRoute(modifier: Modifier = Modifier) {
                             categoryName = category.name,
                             amountMinor = category.amountMinor,
                             fraction = animatedFraction,
-                            barColor = category.color,
+                            barColor = category.colorForIndex(index),
                         )
-                        if (index < previewCategorySpending.lastIndex) {
+                        if (index < uiState.categorySpending.lastIndex) {
                             HorizontalDivider(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                             )
@@ -227,7 +193,6 @@ fun InsightsRoute(modifier: Modifier = Modifier) {
             }
         }
 
-        // ── Large Transactions ──────────────────────────────────────
         item(key = "large_txn_header") {
             Column(modifier = Modifier.animateItem()) {
                 Spacer(modifier = Modifier.height(spacing.xs))
@@ -254,7 +219,7 @@ fun InsightsRoute(modifier: Modifier = Modifier) {
                         .fillMaxWidth()
                         .padding(spacing.sm),
                 ) {
-                    previewLargeTransactions.forEachIndexed { index, txn ->
+                    uiState.largeTransactions.forEachIndexed { index, txn ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -279,7 +244,7 @@ fun InsightsRoute(modifier: Modifier = Modifier) {
                                 style = MoneyTypography.small,
                             )
                         }
-                        if (index < previewLargeTransactions.lastIndex) {
+                        if (index < uiState.largeTransactions.lastIndex) {
                             HorizontalDivider(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                             )
@@ -289,4 +254,16 @@ fun InsightsRoute(modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+private fun CategorySpendingItem.colorForIndex(index: Int): Color {
+    val palette = listOf(
+        Color(0xFF006590),
+        Color(0xFFE67E22),
+        Color(0xFF7D5800),
+        Color(0xFF1ABC9C),
+        Color(0xFF3498DB),
+        Color(0xFF8E44AD),
+    )
+    return palette[index % palette.size]
 }
