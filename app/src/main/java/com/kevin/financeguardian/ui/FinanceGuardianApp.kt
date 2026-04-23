@@ -41,10 +41,13 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
+import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.kevin.financeguardian.feature.categories.CategoriesRoute
+import com.kevin.financeguardian.feature.categories.CategoryDetailRoute
 import com.kevin.financeguardian.feature.insights.InsightsRoute
 import com.kevin.financeguardian.feature.onboarding.OnboardingRoute
 import com.kevin.financeguardian.feature.security.AppLockRoute
@@ -188,7 +191,9 @@ private fun MainAppContent(
                     val selected = currentDestination
                         ?.hierarchy
                         ?.any { it.route == destination.route }
-                        ?: false
+                        ?: false ||
+                        (destination == FinanceGuardianDestination.Categories &&
+                            currentDestination?.route?.startsWith("categories/") == true)
 
                     NavigationBarItem(
                         selected = selected,
@@ -259,7 +264,21 @@ private fun MainAppContent(
                 InsightsRoute()
             }
             composable(FinanceGuardianDestination.Categories.route) {
-                CategoriesRoute()
+                CategoriesRoute(
+                    onCategoryClick = { categoryId ->
+                        navController.navigate("categories/$categoryId")
+                    },
+                )
+            }
+            composable(
+                route = "categories/{categoryId}",
+                arguments = listOf(
+                    navArgument("categoryId") { type = NavType.StringType },
+                ),
+            ) {
+                CategoryDetailRoute(
+                    onBackClick = { navController.popBackStack() },
+                )
             }
             composable(FinanceGuardianDestination.Settings.route) {
                 SettingsRoute(

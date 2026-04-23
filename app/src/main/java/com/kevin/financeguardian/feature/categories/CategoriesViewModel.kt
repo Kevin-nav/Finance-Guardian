@@ -27,13 +27,15 @@ class CategoriesViewModel @Inject constructor(
 ) : ViewModel() {
     private val editorMode = MutableStateFlow<CategoryEditorMode?>(null)
     private val editorError = MutableStateFlow<String?>(null)
+    private val _selectedFilter = MutableStateFlow(CategoryTypeFilter.All)
 
     val uiState: StateFlow<CategoriesUiState> = combine(
         categoryDao.observeAll(),
         transactionRepository.observeTransactions(),
         editorMode,
         editorError,
-    ) { categories, transactions, editor, error ->
+        _selectedFilter,
+    ) { categories, transactions, editor, error, filter ->
         val transactionCounts = transactions
             .mapNotNull { it.categoryId }
             .groupingBy { it }
@@ -44,9 +46,23 @@ class CategoriesViewModel @Inject constructor(
         }
         val editorState = editor?.toEditorState(categories, transactionCounts, error)
 
+        val filteredItems = when (filter) {
+            CategoryTypeFilter.All -> items
+            CategoryTypeFilter.Expense -> items.filter { it.type == CategoryType.EXPENSE }
+            CategoryTypeFilter.Income -> items.filter { it.type == CategoryType.INCOME }
+            CategoryTypeFilter.Transfer -> items.filter { it.type == CategoryType.TRANSFER }
+            CategoryTypeFilter.Savings -> items.filter { it.type == CategoryType.SAVINGS }
+        }
+
         CategoriesUiState(
             categories = items,
+            filteredCategories = filteredItems,
             totalCount = items.size,
+            expenseCount = items.count { it.type == CategoryType.EXPENSE },
+            incomeCount = items.count { it.type == CategoryType.INCOME },
+            transferCount = items.count { it.type == CategoryType.TRANSFER },
+            savingsCount = items.count { it.type == CategoryType.SAVINGS },
+            selectedFilter = filter,
             editor = editorState,
         )
     }.stateIn(
@@ -54,6 +70,10 @@ class CategoriesViewModel @Inject constructor(
         started = SharingStarted.Eagerly,
         initialValue = CategoriesUiState(),
     )
+
+    fun selectFilter(filter: CategoryTypeFilter) {
+        _selectedFilter.value = filter
+    }
 
     fun startAddCategory() {
         editorError.value = null
@@ -194,9 +214,27 @@ class CategoriesViewModel @Inject constructor(
     }
 }
 
+// ── Filter Enum ─────────────────────────────────────────────────────────────
+
+enum class CategoryTypeFilter(val label: String) {
+    All("All"),
+    Expense("Expenses"),
+    Income("Income"),
+    Transfer("Transfers"),
+    Savings("Savings"),
+}
+
+// ── UI State ────────────────────────────────────────────────────────────────
+
 data class CategoriesUiState(
     val categories: List<CategoryListItem> = emptyList(),
+    val filteredCategories: List<CategoryListItem> = emptyList(),
     val totalCount: Int = 0,
+    val expenseCount: Int = 0,
+    val incomeCount: Int = 0,
+    val transferCount: Int = 0,
+    val savingsCount: Int = 0,
+    val selectedFilter: CategoryTypeFilter = CategoryTypeFilter.All,
     val editor: CategoryEditorUiState? = null,
 )
 
