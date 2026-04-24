@@ -175,7 +175,12 @@ fun TransactionDetailSheet(
             DetailRow(label = "Date", value = "${transaction.dateGroup}, ${transaction.timestamp}")
             DetailRow(label = "Provider", value = transaction.provider)
             if (transaction.reference != null) {
-                DetailRow(label = "Reference", value = transaction.reference)
+                val referenceLabel = when {
+                    transaction.reference.startsWith("Merchant ID:", ignoreCase = true) -> "Details"
+                    transaction.reference.contains("Merchant ID:", ignoreCase = true) -> "Reference / Details"
+                    else -> "Reference"
+                }
+                DetailRow(label = referenceLabel, value = transaction.reference)
             }
             if (transaction.balanceAfterMinor != null) {
                 DetailRow(

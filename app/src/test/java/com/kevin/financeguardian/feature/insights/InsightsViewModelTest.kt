@@ -2,8 +2,11 @@ package com.kevin.financeguardian.feature.insights
 
 import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.core.notifications.InsightEvaluator
+import com.kevin.financeguardian.data.learning.RecurringPatternDetector
 import com.kevin.financeguardian.data.local.dao.CategoryDao
+import com.kevin.financeguardian.data.local.dao.LearningSignalDao
 import com.kevin.financeguardian.data.local.entity.CategoryEntity
+import com.kevin.financeguardian.data.local.entity.LearningSignalEntity
 import com.kevin.financeguardian.data.repository.TransactionRepository
 import com.kevin.financeguardian.domain.model.CategoryType
 import com.kevin.financeguardian.domain.model.MoneyMovementType
@@ -31,6 +34,7 @@ class InsightsViewModelTest {
     private val now = Instant.parse("2026-04-22T12:00:00Z")
     private val repository = FakeTransactionRepository()
     private val categoryDao = FakeCategoryDao()
+    private val learningSignalDao = FakeLearningSignalDao()
 
     @Test
     fun emptyStateHasNoInsights() = runTest {
@@ -157,6 +161,8 @@ class InsightsViewModelTest {
         InsightsViewModel(
             transactionRepository = repository,
             categoryDao = categoryDao,
+            learningSignalDao = learningSignalDao,
+            recurringPatternDetector = RecurringPatternDetector(),
             insightEvaluator = InsightEvaluator(),
             clock = FixedClock(now),
         )
@@ -256,6 +262,53 @@ class InsightsViewModelTest {
 
         fun replace(next: List<CategoryEntity>) {
             categories.value = next.sortedBy { it.name }
+        }
+    }
+
+    private class FakeLearningSignalDao : LearningSignalDao() {
+        private val signals = MutableStateFlow<List<LearningSignalEntity>>(emptyList())
+
+        override suspend fun getBySignalKey(signalKey: String): LearningSignalEntity? =
+            signals.value.firstOrNull { it.signalKey == signalKey }
+
+        override suspend fun getAllOnce(): List<LearningSignalEntity> = signals.value
+
+        override fun observeAll(): Flow<List<LearningSignalEntity>> = signals
+
+        override fun observeCountBySignalType(signalType: String): Flow<Int> =
+            MutableStateFlow(signals.value.count { it.signalType == signalType })
+
+        override suspend fun findByNormalizedMerchantName(
+            normalizedMerchantName: String,
+        ): List<LearningSignalEntity> =
+            signals.value.filter { it.normalizedMerchantName == normalizedMerchantName }
+
+        override suspend fun findByNormalizedPhone(
+            normalizedPhone: String,
+        ): List<LearningSignalEntity> =
+            signals.value.filter { it.normalizedPhone == normalizedPhone }
+
+        override suspend fun findByNormalizedReference(
+            normalizedReference: String,
+        ): List<LearningSignalEntity> =
+            signals.value.filter { it.normalizedReference == normalizedReference }
+
+        override suspend fun upsert(entity: LearningSignalEntity) {
+            signals.update { current ->
+                current.filterNot { it.signalKey == entity.signalKey } + entity
+            }
+        }
+
+        override suspend fun insert(entity: LearningSignalEntity) {
+            signals.update { current -> current + entity }
+        }
+
+        override suspend fun update(entity: LearningSignalEntity) {
+            signals.update { current ->
+                current.map { existing ->
+                    if (existing.id == entity.id) entity else existing
+                }
+            }
         }
     }
 

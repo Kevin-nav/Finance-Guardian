@@ -128,6 +128,31 @@ class TransactionsViewModelTest {
     }
 
     @Test
+    fun expenseMovementOverridesCreditDirectionForRenderingAndFiltering() = runTest {
+        seedCategories()
+        repository.replace(
+            listOf(
+                transaction(
+                    id = "expense-corrected",
+                    counterpartyName = "Bills",
+                    categoryId = "food",
+                    direction = com.kevin.financeguardian.domain.model.TransactionDirection.CREDIT,
+                    movement = MoneyMovementType.EXPENSE,
+                ),
+            ),
+        )
+        val viewModel = viewModel()
+
+        assertEquals(false, viewModel.uiState.value.groups.first().transactions.first().isCredit)
+
+        viewModel.selectFilter(TransactionFilter.Income)
+        assertEquals(emptyList<String>(), viewModel.visibleTransactionIds())
+
+        viewModel.selectFilter(TransactionFilter.Expenses)
+        assertEquals(listOf("expense-corrected"), viewModel.visibleTransactionIds())
+    }
+
+    @Test
     fun summaryComputesIncomeSpendingSavingsAndLatestBalance() = runTest {
         seedCategories()
         repository.replace(

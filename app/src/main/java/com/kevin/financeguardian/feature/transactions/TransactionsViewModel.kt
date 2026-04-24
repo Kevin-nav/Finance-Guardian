@@ -14,7 +14,7 @@ import com.kevin.financeguardian.domain.model.Category
 import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.Provider
 import com.kevin.financeguardian.domain.model.Transaction
-import com.kevin.financeguardian.domain.model.TransactionDirection
+import com.kevin.financeguardian.domain.model.effectiveIsCredit
 import com.kevin.financeguardian.ui.components.TransactionDetail
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
@@ -161,7 +161,7 @@ class TransactionsViewModel @Inject constructor(
             categoryName = categoryName,
             categoryId = categoryId,
             amountMinor = amountMinor,
-            isCredit = direction == TransactionDirection.CREDIT,
+            isCredit = effectiveIsCredit(),
             timestamp = occurredAt.formatTime(),
             dateGroup = occurredAt.formatDateGroup(now),
             provider = provider.toDisplayName(),
@@ -185,7 +185,7 @@ class TransactionsViewModel @Inject constructor(
     private fun TransactionListItem.matches(filter: TransactionFilter): Boolean =
         when (filter) {
             TransactionFilter.All -> true
-            TransactionFilter.Income -> isCredit || movementType == MoneyMovementType.INCOME
+            TransactionFilter.Income -> isCredit
             TransactionFilter.Expenses -> !isCredit &&
                 movementType != MoneyMovementType.INTERNAL_TRANSFER &&
                 movementType != MoneyMovementType.SAVINGS_CONTRIBUTION &&
@@ -224,10 +224,10 @@ class TransactionsViewModel @Inject constructor(
     }
 
     private fun Transaction.isIncome(): Boolean =
-        direction == TransactionDirection.CREDIT || moneyMovementType == MoneyMovementType.INCOME
+        effectiveIsCredit()
 
     private fun Transaction.isSpending(): Boolean =
-        direction == TransactionDirection.DEBIT &&
+        !effectiveIsCredit() &&
             moneyMovementType != MoneyMovementType.INTERNAL_TRANSFER &&
             moneyMovementType != MoneyMovementType.SAVINGS_CONTRIBUTION
 

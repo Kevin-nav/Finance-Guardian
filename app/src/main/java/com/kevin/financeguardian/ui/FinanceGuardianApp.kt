@@ -51,6 +51,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.kevin.financeguardian.core.security.AppLockState
 import com.kevin.financeguardian.core.notifications.InAppNoticeManager
 import com.kevin.financeguardian.feature.categories.CategoriesRoute
 import com.kevin.financeguardian.feature.categories.CategoryDetailRoute
@@ -69,6 +70,7 @@ import dagger.hilt.components.SingletonComponent
 typealias AuthenticateAppLock = (
     onSuccess: () -> Unit,
     onFailure: () -> Unit,
+    onUnavailable: (String) -> Unit,
     onError: (String) -> Unit,
 ) -> Unit
 
@@ -82,7 +84,7 @@ private enum class AppScreen {
 fun FinanceGuardianApp(
     modifier: Modifier = Modifier,
     viewModel: AppShellViewModel = hiltViewModel(),
-    onAuthenticate: AuthenticateAppLock = { onSuccess, _, _ -> onSuccess() },
+    onAuthenticate: AuthenticateAppLock = { onSuccess, _, _, _ -> onSuccess() },
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val noticeManager = rememberInAppNoticeManager()
@@ -113,15 +115,17 @@ fun FinanceGuardianApp(
     }
 
     fun authenticate() {
+        viewModel.beginAuthentication()
         onAuthenticate(
             { viewModel.unlock() },
-            { },
-            { },
+            { viewModel.onAuthenticationDismissed() },
+            { viewModel.disableAppLock() },
+            { viewModel.onAuthenticationDismissed() },
         )
     }
 
-    LaunchedEffect(uiState.shouldShowLock) {
-        if (uiState.shouldShowLock) {
+    LaunchedEffect(uiState.shouldShowLock, uiState.appLockState) {
+        if (uiState.shouldShowLock && uiState.appLockState == AppLockState.Locked) {
             authenticate()
         }
     }

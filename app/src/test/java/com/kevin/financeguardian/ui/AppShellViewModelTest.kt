@@ -29,7 +29,7 @@ class AppShellViewModelTest {
     val temporaryFolder = TemporaryFolder()
 
     @Test
-    fun defaultsShowOnboardingAndKeepLockStateLocked() = runTest {
+    fun defaultsShowOnboardingAndKeepLockStateDisabled() = runTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
@@ -38,7 +38,7 @@ class AppShellViewModelTest {
         assertFalse(state.onboardingCompleted)
         assertTrue(state.shouldShowOnboarding)
         assertFalse(state.shouldShowLock)
-        assertEquals(AppLockState.Locked, state.appLockState)
+        assertEquals(AppLockState.Disabled, state.appLockState)
     }
 
     @Test
@@ -89,8 +89,10 @@ class AppShellViewModelTest {
     fun unlockChangesLockStateToUnlocked() = runTest {
         val repository = repository("unlock.preferences_pb")
         repository.setOnboardingCompleted(true)
+        repository.setAppLockEnabled(true)
         val viewModel = viewModel(repository = repository)
 
+        viewModel.beginAuthentication()
         viewModel.unlock()
         advanceUntilIdle()
 
@@ -102,8 +104,10 @@ class AppShellViewModelTest {
     fun lockAfterOnboardingReturnsToLockedWhenAppLockEnabled() = runTest {
         val repository = repository("lock.preferences_pb")
         repository.setOnboardingCompleted(true)
+        repository.setAppLockEnabled(true)
         val viewModel = viewModel(repository = repository)
 
+        viewModel.beginAuthentication()
         viewModel.unlock()
         advanceUntilIdle()
         viewModel.lock()
@@ -125,6 +129,67 @@ class AppShellViewModelTest {
         viewModel.lock()
         advanceUntilIdle()
 
+        assertEquals(AppLockState.Disabled, viewModel.uiState.value.appLockState)
+        assertFalse(viewModel.uiState.value.shouldShowLock)
+    }
+
+    @Test
+    fun beginAuthenticationMovesIntoAuthenticatingState() = runTest {
+        val repository = repository("authenticating.preferences_pb")
+        repository.setOnboardingCompleted(true)
+        repository.setAppLockEnabled(true)
+        val viewModel = viewModel(repository = repository)
+
+        viewModel.beginAuthentication()
+        advanceUntilIdle()
+
+        assertEquals(AppLockState.Authenticating, viewModel.uiState.value.appLockState)
+        assertTrue(viewModel.uiState.value.shouldShowLock)
+    }
+
+    @Test
+    fun lockDoesNotOverrideAuthenticatingState() = runTest {
+        val repository = repository("auth-stop.preferences_pb")
+        repository.setOnboardingCompleted(true)
+        repository.setAppLockEnabled(true)
+        val viewModel = viewModel(repository = repository)
+
+        viewModel.beginAuthentication()
+        advanceUntilIdle()
+        viewModel.lock()
+        advanceUntilIdle()
+
+        assertEquals(AppLockState.Authenticating, viewModel.uiState.value.appLockState)
+        assertTrue(viewModel.uiState.value.shouldShowLock)
+    }
+
+    @Test
+    fun dismissingAuthenticationReturnsToLockedState() = runTest {
+        val repository = repository("auth-dismiss.preferences_pb")
+        repository.setOnboardingCompleted(true)
+        repository.setAppLockEnabled(true)
+        val viewModel = viewModel(repository = repository)
+
+        viewModel.beginAuthentication()
+        advanceUntilIdle()
+        viewModel.onAuthenticationDismissed()
+        advanceUntilIdle()
+
+        assertEquals(AppLockState.Locked, viewModel.uiState.value.appLockState)
+        assertTrue(viewModel.uiState.value.shouldShowLock)
+    }
+
+    @Test
+    fun disablingAppLockMarksStateDisabledAndHidesLock() = runTest {
+        val repository = repository("disable-app-lock.preferences_pb")
+        repository.setOnboardingCompleted(true)
+        repository.setAppLockEnabled(true)
+        val viewModel = viewModel(repository = repository)
+
+        viewModel.disableAppLock()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.appLockEnabled)
         assertEquals(AppLockState.Disabled, viewModel.uiState.value.appLockState)
         assertFalse(viewModel.uiState.value.shouldShowLock)
     }

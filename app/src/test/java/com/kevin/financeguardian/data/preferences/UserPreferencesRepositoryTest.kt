@@ -22,7 +22,7 @@ class UserPreferencesRepositoryTest {
 
         assertEquals(
             UserPreferences(
-                appLockEnabled = true,
+                appLockEnabled = false,
                 screenPrivacyEnabled = false,
                 debugParserModeEnabled = false,
                 onboardingCompleted = false,

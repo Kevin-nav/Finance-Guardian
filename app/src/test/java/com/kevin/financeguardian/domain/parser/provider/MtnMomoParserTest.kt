@@ -58,6 +58,21 @@ class MtnMomoParserTest {
     }
 
     @Test
+    fun parsesPaymentForMessageWithMerchantIdAsDetails() {
+        val parsed = parse(
+            "Payment for GHS50.50 to Bills.INV ..Current Balance: GHS 113.41. Transaction Id: 79891168722. Fee charged: GHS0.00,Tax Charged 0.",
+        ).parsed()
+
+        assertEquals(TransactionDirection.DEBIT, parsed.transaction.direction)
+        assertEquals(MoneyMovementType.EXPENSE, parsed.transaction.moneyMovementType)
+        assertEquals(5050, parsed.transaction.amountMinor)
+        assertEquals("Bills", parsed.transaction.counterpartyName)
+        assertEquals("Merchant ID: INV", parsed.transaction.reference)
+        assertEquals("79891168722", parsed.transaction.providerTransactionId)
+        assertEquals(11341L, parsed.transaction.balanceAfterMinor)
+    }
+
+    @Test
     fun parsesYelloMerchantMessage() {
         val parsed = parse(
             "Y'ello. You have Paid GHS 18.5 to Merchant 004501 on your mobile money account at 202621155504. Message from sender: snacks. Your new balance: GHS 449.61 . Fee was GHS 0.50 . Financial Transaction Id: 123.",

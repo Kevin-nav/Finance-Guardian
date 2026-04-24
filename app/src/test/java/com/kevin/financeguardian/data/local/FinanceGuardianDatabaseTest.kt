@@ -1,5 +1,6 @@
 package com.kevin.financeguardian.data.local
 
+import android.content.Context
 import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -31,11 +32,12 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class FinanceGuardianDatabaseTest {
     private lateinit var database: FinanceGuardianDatabase
+    private val context: Context = ApplicationProvider.getApplicationContext()
 
     @Before
     fun setUp() {
         database = Room.inMemoryDatabaseBuilder(
-            ApplicationProvider.getApplicationContext(),
+            context,
             FinanceGuardianDatabase::class.java,
         )
             .allowMainThreadQueries()
@@ -275,6 +277,37 @@ class FinanceGuardianDatabaseTest {
         )
     }
 
+    @Test
+    fun migrationsUpgradeVersion1DatabaseAndPreserveTransactions() = runTest {
+        database.close()
+
+        val dbName = "migration-test-${System.nanoTime()}.db"
+        createVersion1Database(dbName)
+
+        val migratedDatabase = Room.databaseBuilder(
+            context,
+            FinanceGuardianDatabase::class.java,
+            dbName,
+        )
+            .addMigrations(
+                DatabaseMigrations.MIGRATION_1_2,
+                DatabaseMigrations.MIGRATION_2_3,
+            )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val transaction = migratedDatabase.transactionDao().getById("transaction-1")
+            assertNotNull(transaction)
+            assertEquals("legacy-sms-1", transaction?.sourceMessageId)
+            assertEquals(null, transaction?.providerTransactionId)
+            assertEquals(null, transaction?.dedupeKey)
+        } finally {
+            migratedDatabase.close()
+            context.deleteDatabase(dbName)
+        }
+    }
+
     private fun sampleTransaction(): TransactionEntity {
         val now = Instant.parse("2026-04-21T12:00:00Z")
         return TransactionEntity(
@@ -297,6 +330,146 @@ class FinanceGuardianDatabaseTest {
             createdAt = now,
             updatedAt = now,
         )
+    }
+
+    private fun createVersion1Database(dbName: String) {
+        context.deleteDatabase(dbName)
+        val db = context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null)
+        try {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS transactions (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    sourceMessageId TEXT,
+                    provider TEXT NOT NULL,
+                    rawSender TEXT NOT NULL,
+                    rawBodyHash TEXT NOT NULL,
+                    occurredAt INTEGER NOT NULL,
+                    direction TEXT NOT NULL,
+                    moneyMovementType TEXT NOT NULL,
+                    amountMinor INTEGER NOT NULL,
+                    currency TEXT NOT NULL,
+                    counterpartyName TEXT,
+                    counterpartyPhone TEXT,
+                    reference TEXT,
+                    balanceAfterMinor INTEGER,
+                    categoryId TEXT,
+                    confidence REAL NOT NULL,
+                    createdAt INTEGER NOT NULL,
+                    updatedAt INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS index_transactions_sourceMessageId ON transactions(sourceMessageId)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_transactions_occurredAt ON transactions(occurredAt)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_transactions_categoryId ON transactions(categoryId)",
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS merchants (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    displayName TEXT NOT NULL,
+                    normalizedName TEXT NOT NULL,
+                    phone TEXT,
+                    defaultCategoryId TEXT,
+                    createdFromTransactionId TEXT,
+                    createdAt INTEGER NOT NULL,
+                    updatedAt INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS index_merchants_normalizedName ON merchants(normalizedName)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_merchants_phone ON merchants(phone)",
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS categories (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    isArchived INTEGER NOT NULL,
+                    createdAt INTEGER NOT NULL,
+                    updatedAt INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS index_categories_name ON categories(name)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_categories_type ON categories(type)",
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS sms_message_records (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    sender TEXT NOT NULL,
+                    bodyHash TEXT NOT NULL,
+                    receivedAt INTEGER NOT NULL,
+                    processedAt INTEGER,
+                    parseStatus TEXT NOT NULL,
+                    parseReason TEXT
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS index_sms_message_records_sender_bodyHash_receivedAt
+                ON sms_message_records(sender, bodyHash, receivedAt)
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_sms_message_records_parseStatus ON sms_message_records(parseStatus)",
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS parser_rules (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    provider TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    enabled INTEGER NOT NULL,
+                    createdAt INTEGER NOT NULL,
+                    updatedAt INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_parser_rules_provider ON parser_rules(provider)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_parser_rules_enabled ON parser_rules(enabled)",
+            )
+            db.execSQL(
+                """
+                INSERT INTO transactions (
+                    id, sourceMessageId, provider, rawSender, rawBodyHash, occurredAt, direction,
+                    moneyMovementType, amountMinor, currency, counterpartyName, counterpartyPhone,
+                    reference, balanceAfterMinor, categoryId, confidence, createdAt, updatedAt
+                ) VALUES (
+                    'transaction-1', 'legacy-sms-1', 'MTN_MOMO', 'MTN MoMo', 'hash-legacy',
+                    1713787200000, 'DEBIT', 'EXPENSE', 1850, 'GHS', 'Legacy Merchant', NULL,
+                    'legacy ref', 44961, NULL, 0.95, 1713787200000, 1713787200000
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY, identity_hash TEXT)",
+            )
+            db.execSQL(
+                "INSERT OR REPLACE INTO room_master_table (id, identity_hash) VALUES(42, 'e2a27de4ddabb71307b9bd19442dfeec')",
+            )
+            db.version = 1
+        } finally {
+            db.close()
+        }
     }
 
     private fun sampleSmsRecord(): SmsMessageRecordEntity {

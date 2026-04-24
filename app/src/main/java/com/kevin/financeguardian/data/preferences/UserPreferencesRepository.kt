@@ -13,7 +13,7 @@ class UserPreferencesRepository @Inject constructor(
 ) {
     val preferences: Flow<UserPreferences> = dataStore.data.map { values ->
         UserPreferences(
-            appLockEnabled = values[APP_LOCK_ENABLED] ?: true,
+            appLockEnabled = values[APP_LOCK_ENABLED] ?: false,
             screenPrivacyEnabled = values[SCREEN_PRIVACY_ENABLED] ?: false,
             debugParserModeEnabled = values[DEBUG_PARSER_MODE_ENABLED] ?: false,
             onboardingCompleted = values[ONBOARDING_COMPLETED] ?: false,

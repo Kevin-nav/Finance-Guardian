@@ -17,7 +17,7 @@ import com.kevin.financeguardian.domain.model.Category
 import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.Provider
 import com.kevin.financeguardian.domain.model.Transaction
-import com.kevin.financeguardian.domain.model.TransactionDirection
+import com.kevin.financeguardian.domain.model.effectiveIsCredit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.time.ZoneId
@@ -94,7 +94,7 @@ class InsightsViewModel @Inject constructor(
                 LargeTransactionItem(
                     merchantName = transaction.displayName(),
                     amountMinor = transaction.amountMinor,
-                    isCredit = transaction.direction == TransactionDirection.CREDIT,
+                    isCredit = transaction.effectiveIsCredit(),
                     date = transaction.occurredAt.formatDate(now),
                 )
             }
@@ -218,10 +218,10 @@ class InsightsViewModel @Inject constructor(
     }
 
     private fun Transaction.isIncome(): Boolean =
-        direction == TransactionDirection.CREDIT || moneyMovementType == MoneyMovementType.INCOME
+        effectiveIsCredit()
 
     private fun Transaction.isCashOutflowForInsights(): Boolean =
-        direction == TransactionDirection.DEBIT &&
+        !effectiveIsCredit() &&
             moneyMovementType != MoneyMovementType.INTERNAL_TRANSFER
 
     private fun Transaction.displayName(): String =

@@ -14,7 +14,7 @@ import com.kevin.financeguardian.domain.model.DefaultCategories
 import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.Provider
 import com.kevin.financeguardian.domain.model.Transaction
-import com.kevin.financeguardian.domain.model.TransactionDirection
+import com.kevin.financeguardian.domain.model.effectiveIsCredit
 import com.kevin.financeguardian.ui.components.TransactionDetail
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
@@ -127,7 +127,7 @@ class CategoryDetailViewModel @Inject constructor(
             categoryName = categoryName,
             categoryId = categoryId,
             amountMinor = amountMinor,
-            isCredit = direction == TransactionDirection.CREDIT,
+            isCredit = effectiveIsCredit(),
             timestamp = occurredAt.formatTime(),
             dateGroup = occurredAt.formatDateGroup(now),
             provider = provider.toDisplayName(),

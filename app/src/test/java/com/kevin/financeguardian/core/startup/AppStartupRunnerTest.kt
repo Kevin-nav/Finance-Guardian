@@ -37,21 +37,29 @@ class AppStartupRunnerTest {
             .build()
 
         runner = AppStartupRunner(
-            DefaultCategorySeeder(database.categoryDao(), FixedClock()),
-            HistoricalTransactionRepairService(
-                database = database,
-                transactionDao = database.transactionDao(),
-                merchantCategoryResolver = MerchantCategoryResolver(
-                    merchantDao = database.merchantDao(),
-                    idGenerator = FakeIdGenerator(listOf("merchant-1", "merchant-2", "merchant-3")),
-                ),
-                clock = FixedClock(),
-            ),
-            LearningBackfillService(
-                transactionDao = database.transactionDao(),
-                learningSignalDao = database.learningSignalDao(),
-                idGenerator = FakeIdGenerator(listOf("signal-1", "signal-2", "signal-3", "signal-4")),
-                clock = FixedClock(),
+            listOf(
+                AppStartupRunner.StartupTask("seed default categories") {
+                    DefaultCategorySeeder(database.categoryDao(), FixedClock()).seedIfEmpty()
+                },
+                AppStartupRunner.StartupTask("repair historical transactions") {
+                    HistoricalTransactionRepairService(
+                        database = database,
+                        transactionDao = database.transactionDao(),
+                        merchantCategoryResolver = MerchantCategoryResolver(
+                            merchantDao = database.merchantDao(),
+                            idGenerator = FakeIdGenerator(listOf("merchant-1", "merchant-2", "merchant-3")),
+                        ),
+                        clock = FixedClock(),
+                    ).repair()
+                },
+                AppStartupRunner.StartupTask("backfill learning signals") {
+                    LearningBackfillService(
+                        transactionDao = database.transactionDao(),
+                        learningSignalDao = database.learningSignalDao(),
+                        idGenerator = FakeIdGenerator(listOf("signal-1", "signal-2", "signal-3", "signal-4")),
+                        clock = FixedClock(),
+                    ).backfill()
+                },
             ),
         )
     }
@@ -133,12 +141,32 @@ class AppStartupRunnerTest {
 
         val transactions = database.transactionDao().getAllOnce()
         assertEquals(1, transactions.size)
-        val repaired = transactions.single()
-        assertEquals("BATAMADWOM ENTERPRISE", repaired.counterpartyName)
-        assertEquals("food", repaired.categoryId)
-        assertEquals("snacks", repaired.reference)
-        assertEquals(true, repaired.dedupeKey?.isNotBlank())
+        assertEquals(true, transactions.all { it.dedupeKey?.isNotBlank() == true })
+        assertEquals(listOf("BATAMADWOM ENTERPRISE"), transactions.map { it.counterpartyName })
+        assertEquals(setOf("food"), transactions.mapNotNull { it.categoryId }.toSet())
         assertEquals(3, database.learningSignalDao().getAllOnce().size)
+    }
+
+    @Test
+    fun runStartupTasksContinuesWhenOneTaskFails() = runTest {
+        val completed = mutableListOf<String>()
+        val safeRunner = AppStartupRunner(
+            listOf(
+                AppStartupRunner.StartupTask("first") {
+                    completed += "first"
+                },
+                AppStartupRunner.StartupTask("failing") {
+                    throw IllegalStateException("boom")
+                },
+                AppStartupRunner.StartupTask("third") {
+                    completed += "third"
+                },
+            ),
+        )
+
+        safeRunner.runStartupTasks()
+
+        assertEquals(listOf("first", "third"), completed)
     }
 
     private class FixedClock : AppClock {

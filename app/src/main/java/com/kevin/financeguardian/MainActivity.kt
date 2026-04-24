@@ -30,11 +30,12 @@ class MainActivity : FragmentActivity() {
         setContent {
             FinanceGuardianTheme {
                 FinanceGuardianApp(
-                    onAuthenticate = { onSuccess, onFailure, onError ->
+                    onAuthenticate = { onSuccess, onFailure, onUnavailable, onError ->
                         appLockAuthenticator.authenticate(
                             activity = this,
                             onSuccess = onSuccess,
                             onFailure = onFailure,
+                            onUnavailable = onUnavailable,
                             onError = onError,
                         )
                     },

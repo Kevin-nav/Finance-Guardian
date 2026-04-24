@@ -3,6 +3,7 @@ package com.kevin.financeguardian.domain.parser.provider
 import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.Provider
 import com.kevin.financeguardian.domain.model.TransactionDirection
+import com.kevin.financeguardian.domain.parser.CounterpartyDetailsNormalizer
 import com.kevin.financeguardian.domain.parser.ProviderParser
 import com.kevin.financeguardian.domain.parser.SmsParseInput
 import com.kevin.financeguardian.domain.parser.SmsParseResult
@@ -46,6 +47,10 @@ class MtnMomoParser : ProviderParser {
     private fun parsePaymentMade(input: SmsParseInput, body: String): SmsParseResult? {
         val match = Regex("""(?i)Payment made for (GHS\s*[0-9,.]+) to (.+?)(?:\.| Current Balance:)""")
             .find(body) ?: return null
+        val counterpartyDetails = CounterpartyDetailsNormalizer.normalize(
+            counterpartyName = match.groupValues[2],
+            reference = referenceAfter(body),
+        )
         return parsedResult(
             provider = provider,
             input = input,
@@ -53,8 +58,8 @@ class MtnMomoParser : ProviderParser {
             direction = TransactionDirection.DEBIT,
             moneyMovementType = MoneyMovementType.EXPENSE,
             amountMinor = parseAmountMinor(match.groupValues[1]) ?: return null,
-            counterpartyName = match.groupValues[2],
-            reference = referenceAfter(body),
+            counterpartyName = counterpartyDetails.counterpartyName,
+            reference = counterpartyDetails.reference,
             balanceAfterMinor = balanceAfter(currentBalancePattern, body),
             confidence = 0.9f,
         )
@@ -63,6 +68,10 @@ class MtnMomoParser : ProviderParser {
     private fun parsePaymentFor(input: SmsParseInput, body: String): SmsParseResult? {
         val match = Regex("""(?i)Payment for (GHS\s*[0-9,.]+) to (.+?)\s*\.(?:Current Balance:)""")
             .find(body) ?: return null
+        val counterpartyDetails = CounterpartyDetailsNormalizer.normalize(
+            counterpartyName = match.groupValues[2],
+            reference = referenceAfter(body),
+        )
         return parsedResult(
             provider = provider,
             input = input,
@@ -70,8 +79,8 @@ class MtnMomoParser : ProviderParser {
             direction = TransactionDirection.DEBIT,
             moneyMovementType = MoneyMovementType.EXPENSE,
             amountMinor = parseAmountMinor(match.groupValues[1]) ?: return null,
-            counterpartyName = match.groupValues[2],
-            reference = referenceAfter(body),
+            counterpartyName = counterpartyDetails.counterpartyName,
+            reference = counterpartyDetails.reference,
             balanceAfterMinor = balanceAfter(currentBalancePattern, body),
             confidence = 0.9f,
         )

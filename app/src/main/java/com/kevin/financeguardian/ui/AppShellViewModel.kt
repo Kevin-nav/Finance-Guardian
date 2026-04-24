@@ -55,12 +55,33 @@ class AppShellViewModel @Inject constructor(
         permissionRefreshes.value += 1
     }
 
+    fun beginAuthentication() {
+        if (uiState.value.appLockEnabled) {
+            appLockState.value = AppLockState.Authenticating
+        }
+    }
+
+    fun onAuthenticationDismissed() {
+        if (uiState.value.appLockEnabled) {
+            appLockState.value = AppLockState.Locked
+        }
+    }
+
+    fun disableAppLock() {
+        viewModelScope.launch {
+            userPreferencesRepository.setAppLockEnabled(false)
+            appLockState.value = AppLockState.Disabled
+        }
+    }
+
     fun unlock() {
         appLockState.value = AppLockState.Unlocked
     }
 
     fun lock() {
-        appLockState.value = AppLockState.Locked
+        if (appLockState.value != AppLockState.Authenticating) {
+            appLockState.value = AppLockState.Locked
+        }
     }
 }
 
@@ -70,10 +91,12 @@ data class AppShellUiState(
         receiveSmsGranted = false,
         postNotificationsGranted = false,
     ),
-    val appLockEnabled: Boolean = true,
+    val appLockEnabled: Boolean = false,
     val appLockState: AppLockState = AppLockState.Locked,
 ) {
     val shouldShowOnboarding: Boolean = !onboardingCompleted
     val shouldShowLock: Boolean =
-        onboardingCompleted && appLockState == AppLockState.Locked
+        onboardingCompleted &&
+            appLockState != AppLockState.Disabled &&
+            appLockState != AppLockState.Unlocked
 }

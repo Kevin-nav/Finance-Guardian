@@ -7,6 +7,7 @@ interface AppLockAuthenticator {
         activity: FragmentActivity,
         onSuccess: () -> Unit,
         onFailure: () -> Unit,
+        onUnavailable: (String) -> Unit,
         onError: (String) -> Unit,
     )
 }

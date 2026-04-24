@@ -201,7 +201,7 @@ class SettingsViewModel @Inject constructor(
 }
 
 data class SettingsUiState(
-    val appLockEnabled: Boolean = true,
+    val appLockEnabled: Boolean = false,
     val screenPrivacyEnabled: Boolean = false,
     val debugParserModeEnabled: Boolean = false,
     val notificationsEnabled: Boolean = true,

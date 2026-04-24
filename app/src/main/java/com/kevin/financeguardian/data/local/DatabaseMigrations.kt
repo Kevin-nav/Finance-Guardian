@@ -8,7 +8,6 @@ object DatabaseMigrations {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE transactions ADD COLUMN providerTransactionId TEXT")
             db.execSQL("ALTER TABLE transactions ADD COLUMN dedupeKey TEXT")
-            db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_dedupeKey ON transactions(dedupeKey)")
         }
     }
 
