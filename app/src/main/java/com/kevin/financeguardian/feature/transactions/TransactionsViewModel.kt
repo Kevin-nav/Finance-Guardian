@@ -121,6 +121,7 @@ class TransactionsViewModel @Inject constructor(
         }
         val filteredItems = items.filter { it.matches(selectedFilter) }
         val selectedItem = items.firstOrNull { it.id == selectedTransactionId }
+        val providerBalances = transactions.latestProviderBalances()
 
         return TransactionsUiState(
             filters = TransactionFilter.entries.toList(),
@@ -128,10 +129,8 @@ class TransactionsViewModel @Inject constructor(
             groups = filteredItems.toGroups(),
             categoryOptions = categoryOptions,
             selectedTransaction = selectedItem?.toDetail(),
-            totalBalanceMinor = transactions
-                .sortedByDescending { it.occurredAt }
-                .firstNotNullOfOrNull { it.balanceAfterMinor }
-                ?: 0L,
+            totalBalanceMinor = providerBalances.sumOf { it.balanceMinor },
+            providerBalances = providerBalances,
             incomeMinor = transactions
                 .filter { it.isIncome() }
                 .sumOf { it.amountMinor },
@@ -145,6 +144,32 @@ class TransactionsViewModel @Inject constructor(
             isEmpty = transactions.isEmpty(),
         )
     }
+
+    private fun List<Transaction>.latestProviderBalances(): List<ProviderBalanceSnapshot> =
+        asSequence()
+            .filter { it.balanceAfterMinor != null && it.provider != Provider.UNKNOWN }
+            .groupBy { it.provider }
+            .mapNotNull { (provider, providerTransactions) ->
+                val latest = providerTransactions.maxByOrNull { it.occurredAt } ?: return@mapNotNull null
+                ProviderBalanceSnapshot(
+                    provider = provider.toDisplayName(),
+                    balanceMinor = latest.balanceAfterMinor ?: return@mapNotNull null,
+                    currency = latest.currency,
+                )
+            }
+            .sortedWith(
+                compareBy<ProviderBalanceSnapshot> { it.provider.providerSortOrder() }
+                    .thenBy { it.provider },
+            )
+
+    private fun String.providerSortOrder(): Int =
+        when (this) {
+            "MTN MoMo" -> 0
+            "Telecel Cash" -> 1
+            "GCB Bank" -> 2
+            "Unknown Bank" -> 3
+            else -> 4
+        }
 
     private fun Transaction.toListItem(
         categoryById: Map<String, Category>,
@@ -258,11 +283,18 @@ data class TransactionsUiState(
     val categoryOptions: List<TransactionCategoryOption> = emptyList(),
     val selectedTransaction: TransactionDetail? = null,
     val totalBalanceMinor: Long = 0L,
+    val providerBalances: List<ProviderBalanceSnapshot> = emptyList(),
     val incomeMinor: Long = 0L,
     val expensesMinor: Long = 0L,
     val savingsMinor: Long = 0L,
     val receiveSmsGranted: Boolean = false,
     val isEmpty: Boolean = true,
+)
+
+data class ProviderBalanceSnapshot(
+    val provider: String,
+    val balanceMinor: Long,
+    val currency: String,
 )
 
 enum class TransactionFilter(val label: String) {

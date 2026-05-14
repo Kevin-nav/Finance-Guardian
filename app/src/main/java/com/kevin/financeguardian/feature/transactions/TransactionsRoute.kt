@@ -131,6 +131,13 @@ fun TransactionsRoute(
         item(key = "balance_card") {
             BalanceHeroCard(
                 totalBalanceMinor = uiState.totalBalanceMinor,
+                providerBalances = uiState.providerBalances.map {
+                    com.kevin.financeguardian.ui.components.ProviderBalanceSnapshot(
+                        provider = it.provider,
+                        balanceMinor = it.balanceMinor,
+                        currency = it.currency,
+                    )
+                },
                 incomeMinor = uiState.incomeMinor,
                 expensesMinor = uiState.expensesMinor,
                 savingsMinor = uiState.savingsMinor,

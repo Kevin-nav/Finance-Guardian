@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +30,7 @@ import com.kevin.financeguardian.ui.theme.spacing
 @Composable
 fun BalanceHeroCard(
     totalBalanceMinor: Long,
+    providerBalances: List<ProviderBalanceSnapshot> = emptyList(),
     incomeMinor: Long,
     expensesMinor: Long,
     savingsMinor: Long,
@@ -58,6 +61,20 @@ fun BalanceHeroCard(
             overrideColor = ext.onBalanceCard,
         )
 
+        if (providerBalances.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+                verticalArrangement = Arrangement.spacedBy(spacing.xxs),
+            ) {
+                providerBalances.forEach { balance ->
+                    ProviderBalancePill(
+                        snapshot = balance,
+                        fallbackCurrency = currency,
+                    )
+                }
+            }
+        }
+
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(spacing.xs),
             verticalArrangement = Arrangement.spacedBy(spacing.xxs),
@@ -86,3 +103,41 @@ fun BalanceHeroCard(
         }
     }
 }
+
+@Composable
+private fun ProviderBalancePill(
+    snapshot: ProviderBalanceSnapshot,
+    fallbackCurrency: String,
+    modifier: Modifier = Modifier,
+) {
+    val ext = MaterialTheme.extendedColors
+    val spacing = MaterialTheme.spacing
+
+    Row(
+        modifier = modifier
+            .clip(MaterialTheme.shapes.medium)
+            .background(ext.onBalanceCard.copy(alpha = 0.12f))
+            .padding(horizontal = spacing.sm, vertical = spacing.xs)
+            .widthIn(min = spacing.xxl * 2),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = snapshot.provider,
+            style = MaterialTheme.typography.labelMedium,
+            color = ext.onBalanceCard.copy(alpha = 0.78f),
+            modifier = Modifier.weight(1f),
+        )
+        MoneyText(
+            amountMinor = snapshot.balanceMinor,
+            currency = snapshot.currency.ifBlank { fallbackCurrency },
+            style = MoneyTypography.small,
+            overrideColor = ext.onBalanceCard,
+        )
+    }
+}
+
+data class ProviderBalanceSnapshot(
+    val provider: String,
+    val balanceMinor: Long,
+    val currency: String,
+)

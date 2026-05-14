@@ -148,6 +148,65 @@ class AppStartupRunnerTest {
     }
 
     @Test
+    fun runStartupTasksRemovesGenericMerchantReceiptFalseIncome() = runTest {
+        val occurredAt = Instant.parse("2026-04-21T15:56:00Z")
+        database.transactionDao().insert(
+            TransactionEntity(
+                id = "seritex-receipt",
+                sourceMessageId = "sms-seritex",
+                provider = Provider.UNKNOWN,
+                rawSender = "Seritex",
+                rawBodyHash = "hash-seritex",
+                occurredAt = occurredAt,
+                direction = TransactionDirection.CREDIT,
+                moneyMovementType = MoneyMovementType.UNKNOWN,
+                amountMinor = 5050,
+                currency = "GHS",
+                counterpartyName = null,
+                counterpartyPhone = null,
+                reference = null,
+                balanceAfterMinor = null,
+                categoryId = null,
+                confidence = 0.45f,
+                createdAt = occurredAt,
+                updatedAt = occurredAt,
+            ),
+        )
+        database.transactionDao().insert(
+            TransactionEntity(
+                id = "momo-bill",
+                sourceMessageId = "sms-momo",
+                provider = Provider.MTN_MOMO,
+                rawSender = "MobileMoney",
+                rawBodyHash = "hash-momo",
+                providerTransactionId = "79891168722",
+                occurredAt = occurredAt.minusSeconds(30),
+                direction = TransactionDirection.DEBIT,
+                moneyMovementType = MoneyMovementType.EXPENSE,
+                amountMinor = 5050,
+                currency = "GHS",
+                counterpartyName = "Bills.INV",
+                counterpartyPhone = null,
+                reference = null,
+                balanceAfterMinor = 11341,
+                categoryId = null,
+                confidence = 0.9f,
+                createdAt = occurredAt.minusSeconds(30),
+                updatedAt = occurredAt.minusSeconds(30),
+            ),
+        )
+
+        runner.runStartupTasks()
+
+        val transactions = database.transactionDao().getAllOnce()
+        assertEquals(listOf("momo-bill"), transactions.map { it.id })
+        assertEquals("Bills", transactions.single().counterpartyName)
+        assertEquals("Merchant ID: INV", transactions.single().reference)
+        assertEquals(TransactionDirection.DEBIT, transactions.single().direction)
+        assertEquals(MoneyMovementType.EXPENSE, transactions.single().moneyMovementType)
+    }
+
+    @Test
     fun runStartupTasksContinuesWhenOneTaskFails() = runTest {
         val completed = mutableListOf<String>()
         val safeRunner = AppStartupRunner(

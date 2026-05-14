@@ -25,10 +25,15 @@ class HistoricalTransactionRepairService @Inject constructor(
             val transactions = transactionDao.getAllOnce()
             if (transactions.isEmpty()) return@withTransaction
 
-            val repairedTransactions = transactions.map { transaction ->
+            val receiptFalsePositiveIds = transactions
+                .filter(::isLikelyGenericReceiptFalsePositive)
+                .map(TransactionEntity::id)
+            val repairCandidates = transactions.filterNot { it.id in receiptFalsePositiveIds }
+
+            val repairedTransactions = repairCandidates.map { transaction ->
                 repairTransaction(transaction, now)
             }
-            val duplicateIds = mutableListOf<String>()
+            val duplicateIds = receiptFalsePositiveIds.toMutableList()
 
             repairedTransactions
                 .filter { it.dedupeKey.isNullOrBlank() }
@@ -146,7 +151,19 @@ class HistoricalTransactionRepairService @Inject constructor(
             else -> direction
         }
 
+    private fun isLikelyGenericReceiptFalsePositive(transaction: TransactionEntity): Boolean =
+        transaction.provider == Provider.UNKNOWN &&
+            transaction.direction == TransactionDirection.CREDIT &&
+            transaction.moneyMovementType == MoneyMovementType.UNKNOWN &&
+            transaction.providerTransactionId.isNullOrBlank() &&
+            transaction.counterpartyName.isNullOrBlank() &&
+            transaction.counterpartyPhone.isNullOrBlank() &&
+            transaction.reference.isNullOrBlank() &&
+            transaction.confidence <= GENERIC_FALLBACK_CONFIDENCE
+
     private companion object {
+        const val GENERIC_FALLBACK_CONFIDENCE = 0.45f
+
         val canonicalComparator =
             compareBy<TransactionEntity> { CounterpartyDetailsNormalizer.qualityScore(it.counterpartyName) }
                 .thenBy { if (it.reference.isNullOrBlank()) 0 else 1 }

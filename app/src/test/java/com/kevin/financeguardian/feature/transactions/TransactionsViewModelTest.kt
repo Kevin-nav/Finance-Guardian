@@ -153,12 +153,13 @@ class TransactionsViewModelTest {
     }
 
     @Test
-    fun summaryComputesIncomeSpendingSavingsAndLatestBalance() = runTest {
+    fun summaryComputesIncomeSpendingSavingsAndLatestProviderBalances() = runTest {
         seedCategories()
         repository.replace(
             listOf(
                 transaction(
                     id = "income-1",
+                    provider = Provider.MTN_MOMO,
                     direction = TransactionDirection.CREDIT,
                     movement = MoneyMovementType.INCOME,
                     amountMinor = 100_00,
@@ -167,22 +168,25 @@ class TransactionsViewModelTest {
                 ),
                 transaction(
                     id = "expense-1",
+                    provider = Provider.MTN_MOMO,
                     amountMinor = 25_00,
                     balanceAfterMinor = 875_00,
                     occurredAt = now.minusSeconds(60),
                 ),
                 transaction(
                     id = "transfer-1",
+                    provider = Provider.TELECEL_CASH,
                     movement = MoneyMovementType.INTERNAL_TRANSFER,
                     amountMinor = 40_00,
-                    balanceAfterMinor = 835_00,
+                    balanceAfterMinor = 40_00,
                     occurredAt = now.minusSeconds(30),
                 ),
                 transaction(
                     id = "savings-1",
+                    provider = Provider.GCB,
                     movement = MoneyMovementType.SAVINGS_CONTRIBUTION,
                     amountMinor = 10_00,
-                    balanceAfterMinor = 825_00,
+                    balanceAfterMinor = 500_00,
                     occurredAt = now,
                 ),
             ),
@@ -193,7 +197,15 @@ class TransactionsViewModelTest {
         assertEquals(100_00, state.incomeMinor)
         assertEquals(25_00, state.expensesMinor)
         assertEquals(10_00, state.savingsMinor)
-        assertEquals(825_00, state.totalBalanceMinor)
+        assertEquals(1_415_00, state.totalBalanceMinor)
+        assertEquals(
+            listOf(
+                ProviderBalanceSnapshot("MTN MoMo", 875_00, "GHS"),
+                ProviderBalanceSnapshot("Telecel Cash", 40_00, "GHS"),
+                ProviderBalanceSnapshot("GCB Bank", 500_00, "GHS"),
+            ),
+            state.providerBalances,
+        )
     }
 
     @Test
@@ -258,6 +270,7 @@ class TransactionsViewModelTest {
 
     private fun transaction(
         id: String,
+        provider: Provider = Provider.MTN_MOMO,
         counterpartyName: String? = "Sample Merchant",
         categoryId: String? = null,
         direction: TransactionDirection = TransactionDirection.DEBIT,
@@ -269,7 +282,7 @@ class TransactionsViewModelTest {
         Transaction(
             id = id,
             sourceMessageId = null,
-            provider = Provider.MTN_MOMO,
+            provider = provider,
             rawSender = "MobileMoney",
             rawBodyHash = "hash-$id",
             occurredAt = occurredAt,
