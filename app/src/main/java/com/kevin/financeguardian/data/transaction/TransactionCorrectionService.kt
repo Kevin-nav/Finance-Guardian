@@ -28,20 +28,22 @@ class TransactionCorrectionService @Inject constructor(
         val transaction = transactionDao.getById(transactionId) ?: return TransactionCorrectionResult.NotFound
         val now = clock.now()
 
-        transactionDao.updateCategory(transactionId, categoryId, now)
         if (moneyMovementType != null) {
-            transactionDao.updateMoneyMovementType(transactionId, moneyMovementType, now)
-            transactionDao.updateFlowMetadata(
-                transactionId = transactionId,
+            val includedInSpendingTotals = moneyMovementType == MoneyMovementType.EXPENSE ||
+                moneyMovementType == MoneyMovementType.SUBSCRIPTION_CANDIDATE
+            val includedInIncomeTotals = moneyMovementType == MoneyMovementType.INCOME
+            transactionDao.updateFlowCorrection(
                 flowId = transaction.flowId ?: transaction.id,
+                categoryId = categoryId,
+                type = moneyMovementType,
                 flowType = moneyMovementType.toFlowType(),
                 flowStatus = TransactionFlowStatus.COMPLETE,
-                plannedUse = transaction.plannedUse,
-                includedInSpendingTotals = moneyMovementType == MoneyMovementType.EXPENSE ||
-                    moneyMovementType == MoneyMovementType.SUBSCRIPTION_CANDIDATE,
-                includedInIncomeTotals = moneyMovementType == MoneyMovementType.INCOME,
+                includedInSpendingTotals = includedInSpendingTotals,
+                includedInIncomeTotals = includedInIncomeTotals,
                 updatedAt = now,
             )
+        } else {
+            transactionDao.updateCategory(transactionId, categoryId, now)
         }
 
         if (saveMerchantDefault) {

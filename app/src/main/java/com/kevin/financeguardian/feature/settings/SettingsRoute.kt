@@ -39,6 +39,8 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Sms
@@ -49,6 +51,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -73,6 +76,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.kevin.financeguardian.domain.model.InstrumentProvider
 import com.kevin.financeguardian.ui.theme.extendedColors
 import com.kevin.financeguardian.ui.theme.spacing
 import kotlinx.coroutines.delay
@@ -88,6 +92,10 @@ fun SettingsRoute(
     val spacing = MaterialTheme.spacing
     val context = LocalContext.current
     var showResetDialog by remember { mutableStateOf(false) }
+    var showWalletDialog by remember { mutableStateOf(false) }
+    var walletLabel by remember { mutableStateOf("") }
+    var walletPhone by remember { mutableStateOf("") }
+    var walletProvider by remember { mutableStateOf(InstrumentProvider.MTN) }
 
     // Easter egg: tap version 7 times to reveal developer tools
     var versionTapCount by remember { mutableIntStateOf(0) }
@@ -181,6 +189,74 @@ fun SettingsRoute(
         )
     }
 
+    if (showWalletDialog) {
+        AlertDialog(
+            onDismissRequest = { showWalletDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.PhoneAndroid,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp),
+                )
+            },
+            title = { Text("Add Wallet") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                        listOf(InstrumentProvider.MTN, InstrumentProvider.TELECEL).forEach { provider ->
+                            TextButton(onClick = { walletProvider = provider }) {
+                                Text(
+                                    text = provider.displayLabel(),
+                                    color = if (walletProvider == provider) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    OutlinedTextField(
+                        value = walletLabel,
+                        onValueChange = { walletLabel = it },
+                        label = { Text("Label") },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = walletPhone,
+                        onValueChange = { walletPhone = it },
+                        label = { Text("Phone number") },
+                        singleLine = true,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.addOrUpdateOwnedWallet(
+                            id = walletPhone,
+                            label = walletLabel.ifBlank { walletProvider.displayLabel() },
+                            provider = walletProvider,
+                            phoneNumber = walletPhone,
+                        )
+                        walletLabel = ""
+                        walletPhone = ""
+                        showWalletDialog = false
+                    },
+                    enabled = walletPhone.isNotBlank(),
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWalletDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -260,7 +336,7 @@ fun SettingsRoute(
             SettingsGroupCard {
                 if (uiState.ownedWallets.isEmpty()) {
                     SettingsInfoRow(
-                        icon = Icons.Filled.Security,
+                        icon = Icons.Filled.PhoneAndroid,
                         iconTint = MaterialTheme.colorScheme.primary,
                         title = "Owned wallets",
                         value = "Not set",
@@ -268,14 +344,25 @@ fun SettingsRoute(
                 } else {
                     uiState.ownedWallets.forEachIndexed { index, wallet ->
                         if (index > 0) SettingsRowDivider()
-                        SettingsInfoRow(
-                            icon = Icons.Filled.Security,
+                        SettingsActionRow(
+                            icon = Icons.Filled.PhoneAndroid,
                             iconTint = MaterialTheme.colorScheme.primary,
                             title = wallet.label,
-                            value = wallet.displayIdentifier,
+                            subtitle = "${wallet.provider.displayLabel()} · ${wallet.displayIdentifier}",
+                            actionLabel = "Remove",
+                            onActionClick = { viewModel.removeOwnedWallet(wallet.id) },
                         )
                     }
                 }
+                SettingsRowDivider()
+                SettingsActionRow(
+                    icon = Icons.Filled.Add,
+                    iconTint = MaterialTheme.extendedColors.income,
+                    title = "Add wallet",
+                    subtitle = "Add your MTN or Telecel number to detect internal transfers",
+                    actionLabel = "Add",
+                    onActionClick = { showWalletDialog = true },
+                )
             }
         }
 
@@ -304,6 +391,17 @@ fun SettingsRoute(
                     subtitle = "Send occasional high-signal nudges when spending spikes",
                     checked = uiState.proactiveInsightsEnabled,
                     onCheckedChange = viewModel::setProactiveInsightsEnabled,
+                )
+
+                SettingsRowDivider()
+
+                SettingsToggleRow(
+                    icon = Icons.Filled.Lock,
+                    iconTint = MaterialTheme.colorScheme.tertiary,
+                    title = "Show balances in app",
+                    subtitle = "Reveal or mask balances and transaction amounts",
+                    checked = uiState.balancesVisible,
+                    onCheckedChange = viewModel::setBalancesVisible,
                 )
 
                 SettingsRowDivider()
@@ -827,3 +925,12 @@ private fun AnimatedSettingsSection(
         }
     }
 }
+
+private fun InstrumentProvider.displayLabel(): String =
+    when (this) {
+        InstrumentProvider.MTN -> "MTN"
+        InstrumentProvider.TELECEL -> "Telecel"
+        InstrumentProvider.GCB -> "GCB"
+        InstrumentProvider.OTHER -> "Other"
+        InstrumentProvider.UNKNOWN -> "Unknown"
+    }

@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 4,
-    "identityHash": "d3eb49a105098e3239e0b1791a7b3dea",
+    "identityHash": "4dd385c16e8bb7192878c1056fe1289d",
     "entities": [
       {
         "tableName": "transactions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sourceMessageId` TEXT, `provider` TEXT NOT NULL, `rawSender` TEXT NOT NULL, `rawBodyHash` TEXT NOT NULL, `providerTransactionId` TEXT, `dedupeKey` TEXT, `occurredAt` INTEGER NOT NULL, `direction` TEXT NOT NULL, `moneyMovementType` TEXT NOT NULL, `amountMinor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `counterpartyName` TEXT, `counterpartyPhone` TEXT, `reference` TEXT, `balanceAfterMinor` INTEGER, `balanceReliability` TEXT NOT NULL, `categoryId` TEXT, `flowId` TEXT, `flowType` TEXT, `flowStatus` TEXT, `plannedUse` TEXT, `includedInSpendingTotals` INTEGER NOT NULL, `includedInIncomeTotals` INTEGER NOT NULL, `confidence` REAL NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sourceMessageId` TEXT, `provider` TEXT NOT NULL, `rawSender` TEXT NOT NULL, `rawBodyHash` TEXT NOT NULL, `providerTransactionId` TEXT, `dedupeKey` TEXT, `occurredAt` INTEGER NOT NULL, `direction` TEXT NOT NULL, `moneyMovementType` TEXT NOT NULL, `amountMinor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `counterpartyName` TEXT, `counterpartyPhone` TEXT, `reference` TEXT, `balanceAfterMinor` INTEGER, `balanceReliability` TEXT NOT NULL, `categoryId` TEXT, `flowId` TEXT, `flowType` TEXT, `flowStatus` TEXT, `plannedUse` TEXT, `eventChannel` TEXT, `eventSourceInstrumentType` TEXT, `eventSourceInstrumentProvider` TEXT, `eventSourceInstrumentIdentifier` TEXT, `eventDestinationInstrumentType` TEXT, `eventDestinationInstrumentProvider` TEXT, `eventDestinationInstrumentIdentifier` TEXT, `eventProviderReference` TEXT, `eventInferredIdentifiers` TEXT, `includedInSpendingTotals` INTEGER NOT NULL, `includedInIncomeTotals` INTEGER NOT NULL, `confidence` REAL NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -126,6 +126,51 @@
           {
             "fieldPath": "plannedUse",
             "columnName": "plannedUse",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventChannel",
+            "columnName": "eventChannel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventSourceInstrumentType",
+            "columnName": "eventSourceInstrumentType",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventSourceInstrumentProvider",
+            "columnName": "eventSourceInstrumentProvider",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventSourceInstrumentIdentifier",
+            "columnName": "eventSourceInstrumentIdentifier",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventDestinationInstrumentType",
+            "columnName": "eventDestinationInstrumentType",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventDestinationInstrumentProvider",
+            "columnName": "eventDestinationInstrumentProvider",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventDestinationInstrumentIdentifier",
+            "columnName": "eventDestinationInstrumentIdentifier",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventProviderReference",
+            "columnName": "eventProviderReference",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventInferredIdentifiers",
+            "columnName": "eventInferredIdentifiers",
             "affinity": "TEXT"
           },
           {
@@ -619,7 +664,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd3eb49a105098e3239e0b1791a7b3dea')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4dd385c16e8bb7192878c1056fe1289d')"
     ]
   }
 }

@@ -17,6 +17,9 @@ import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.Provider
 import com.kevin.financeguardian.domain.model.Transaction
 import com.kevin.financeguardian.domain.model.TransactionDirection
+import com.kevin.financeguardian.domain.parser.BalanceReliability
+import com.kevin.financeguardian.domain.parser.TransactionFlowStatus
+import com.kevin.financeguardian.domain.parser.TransactionFlowType
 import com.kevin.financeguardian.testing.MainDispatcherRule
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -209,6 +212,76 @@ class TransactionsViewModelTest {
     }
 
     @Test
+    fun transactionListCollapsesLinkedInternalFlowRows() = runTest {
+        seedCategories()
+        repository.replace(
+            listOf(
+                transaction(
+                    id = "telecel-side",
+                    provider = Provider.TELECEL_CASH,
+                    direction = TransactionDirection.DEBIT,
+                    movement = MoneyMovementType.INTERNAL_TRANSFER,
+                    amountMinor = 20_00,
+                    categoryId = "transfers",
+                    flowId = "telecel-side",
+                    flowType = TransactionFlowType.INTERNAL_TRANSFER,
+                    flowStatus = TransactionFlowStatus.COMPLETE,
+                    occurredAt = now.minusSeconds(60),
+                ),
+                transaction(
+                    id = "mtn-side",
+                    provider = Provider.MTN_MOMO,
+                    direction = TransactionDirection.CREDIT,
+                    movement = MoneyMovementType.INTERNAL_TRANSFER,
+                    amountMinor = 20_00,
+                    categoryId = "transfers",
+                    flowId = "telecel-side",
+                    flowType = TransactionFlowType.INTERNAL_TRANSFER,
+                    flowStatus = TransactionFlowStatus.COMPLETE,
+                    occurredAt = now,
+                ),
+            ),
+        )
+
+        val row = viewModel().uiState.value.groups.single().transactions.single()
+
+        assertEquals("telecel-side", row.id)
+        assertEquals("Telecel Cash -> MTN MoMo", row.merchantName)
+        assertEquals(20_00, row.amountMinor)
+        assertEquals(false, row.includedInSpendingTotals)
+    }
+
+    @Test
+    fun providerBalancesIgnoreSuspiciousBalances() = runTest {
+        seedCategories()
+        repository.replace(
+            listOf(
+                transaction(
+                    id = "valid-gcb",
+                    provider = Provider.GCB,
+                    amountMinor = 10_00,
+                    balanceAfterMinor = 500_00,
+                    balanceReliability = BalanceReliability.RELIABLE,
+                    occurredAt = now.minusSeconds(60),
+                ),
+                transaction(
+                    id = "bad-gcb",
+                    provider = Provider.GCB,
+                    amountMinor = 20_00,
+                    balanceAfterMinor = -21_46,
+                    balanceReliability = BalanceReliability.SUSPICIOUS,
+                    occurredAt = now,
+                ),
+            ),
+        )
+
+        assertEquals(
+            listOf(ProviderBalanceSnapshot("GCB Bank", 500_00, "GHS")),
+            viewModel().uiState.value.providerBalances,
+        )
+    }
+
+    @Test
     fun saveCorrectionCallsBackendWithSelectedCategoryAndMovementType() = runTest {
         seedCategories()
         repository.replace(
@@ -277,6 +350,15 @@ class TransactionsViewModelTest {
         movement: MoneyMovementType = MoneyMovementType.EXPENSE,
         amountMinor: Long = 20_00,
         balanceAfterMinor: Long? = null,
+        balanceReliability: BalanceReliability = BalanceReliability.UNKNOWN,
+        flowId: String? = null,
+        flowType: TransactionFlowType? = null,
+        flowStatus: TransactionFlowStatus? = null,
+        includedInSpendingTotals: Boolean = movement == MoneyMovementType.EXPENSE ||
+            movement == MoneyMovementType.SUBSCRIPTION_CANDIDATE ||
+            (movement == MoneyMovementType.UNKNOWN && direction == TransactionDirection.DEBIT),
+        includedInIncomeTotals: Boolean = movement == MoneyMovementType.INCOME ||
+            (movement == MoneyMovementType.UNKNOWN && direction == TransactionDirection.CREDIT),
         occurredAt: Instant = now,
     ): Transaction =
         Transaction(
@@ -294,7 +376,13 @@ class TransactionsViewModelTest {
             counterpartyPhone = null,
             reference = "R-$id",
             balanceAfterMinor = balanceAfterMinor,
+            balanceReliability = balanceReliability,
             categoryId = categoryId,
+            flowId = flowId,
+            flowType = flowType,
+            flowStatus = flowStatus,
+            includedInSpendingTotals = includedInSpendingTotals,
+            includedInIncomeTotals = includedInIncomeTotals,
             confidence = 0.9f,
             createdAt = occurredAt,
             updatedAt = occurredAt,

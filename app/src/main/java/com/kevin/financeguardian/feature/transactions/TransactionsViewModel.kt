@@ -8,8 +8,10 @@ import com.kevin.financeguardian.core.permissions.PermissionStatusChecker
 import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.local.dao.CategoryDao
 import com.kevin.financeguardian.data.local.mapper.toDomain
+import com.kevin.financeguardian.data.preferences.UserPreferencesRepository
 import com.kevin.financeguardian.data.repository.TransactionRepository
 import com.kevin.financeguardian.data.transaction.TransactionCorrectionApplier
+import com.kevin.financeguardian.domain.parser.BalanceReliability
 import com.kevin.financeguardian.domain.model.Category
 import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.Provider
@@ -26,6 +28,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -37,25 +40,33 @@ class TransactionsViewModel @Inject constructor(
     private val notificationDispatcher: NotificationDispatcher,
     private val permissionStatusChecker: PermissionStatusChecker,
     private val clock: AppClock,
+    private val userPreferencesRepository: UserPreferencesRepository? = null,
 ) : ViewModel() {
     private val selectedFilter = MutableStateFlow(TransactionFilter.All)
     private val selectedTransactionId = MutableStateFlow<String?>(null)
     private val permissionRefreshes = MutableStateFlow(0)
-
-    val uiState: StateFlow<TransactionsUiState> = combine(
+    private val transactionInputs = combine(
         transactionRepository.observeTransactions(),
         categoryDao.observeAll(),
+        userPreferencesRepository?.preferences ?: flowOf(com.kevin.financeguardian.data.preferences.UserPreferences()),
+    ) { transactions, categoryEntities, preferences ->
+        TransactionUiInputs(transactions, categoryEntities, preferences.balancesVisible)
+    }
+
+    val uiState: StateFlow<TransactionsUiState> = combine(
+        transactionInputs,
         selectedFilter,
         selectedTransactionId,
         permissionRefreshes,
-    ) { transactions, categoryEntities, filter, selectedId, _ ->
-        val categories = categoryEntities.map { it.toDomain() }
+    ) { inputs, filter, selectedId, _ ->
+        val categories = inputs.categoryEntities.map { it.toDomain() }
         buildUiState(
-            transactions = transactions,
+            transactions = inputs.transactions,
             categories = categories,
             selectedFilter = filter,
             selectedTransactionId = selectedId,
             receiveSmsGranted = permissionStatusChecker.currentStatuses().receiveSmsGranted,
+            balancesVisible = inputs.balancesVisible,
             now = clock.now(),
         )
     }.stateIn(
@@ -78,6 +89,12 @@ class TransactionsViewModel @Inject constructor(
 
     fun refreshPermissions() {
         permissionRefreshes.value += 1
+    }
+
+    fun setBalancesVisible(visible: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository?.setBalancesVisible(visible)
+        }
     }
 
     fun saveCorrection(
@@ -112,11 +129,13 @@ class TransactionsViewModel @Inject constructor(
         selectedFilter: TransactionFilter,
         selectedTransactionId: String?,
         receiveSmsGranted: Boolean,
+        balancesVisible: Boolean,
         now: Instant,
     ): TransactionsUiState {
         val categoryById = categories.associateBy { it.id }
         val categoryOptions = categories.map { TransactionCategoryOption(it.id, it.name) }
-        val items = transactions.map { transaction ->
+        val collapsedTransactions = transactions.collapseInternalFlows()
+        val items = collapsedTransactions.map { transaction ->
             transaction.toListItem(categoryById, now)
         }
         val filteredItems = items.filter { it.matches(selectedFilter) }
@@ -140,6 +159,7 @@ class TransactionsViewModel @Inject constructor(
             savingsMinor = transactions
                 .filter { it.moneyMovementType == MoneyMovementType.SAVINGS_CONTRIBUTION }
                 .sumOf { it.amountMinor },
+            balancesVisible = balancesVisible,
             receiveSmsGranted = receiveSmsGranted,
             isEmpty = transactions.isEmpty(),
         )
@@ -147,7 +167,11 @@ class TransactionsViewModel @Inject constructor(
 
     private fun List<Transaction>.latestProviderBalances(): List<ProviderBalanceSnapshot> =
         asSequence()
-            .filter { it.balanceAfterMinor != null && it.provider != Provider.UNKNOWN }
+            .filter {
+                it.balanceAfterMinor != null &&
+                    it.provider != Provider.UNKNOWN &&
+                    it.balanceReliability != BalanceReliability.SUSPICIOUS
+            }
             .groupBy { it.provider }
             .mapNotNull { (provider, providerTransactions) ->
                 val latest = providerTransactions.maxByOrNull { it.occurredAt } ?: return@mapNotNull null
@@ -161,6 +185,43 @@ class TransactionsViewModel @Inject constructor(
                 compareBy<ProviderBalanceSnapshot> { it.provider.providerSortOrder() }
                     .thenBy { it.provider },
             )
+
+    private fun List<Transaction>.collapseInternalFlows(): List<Transaction> =
+        groupBy { it.flowId ?: it.id }
+            .values
+            .map { flowTransactions ->
+                if (flowTransactions.size == 1) {
+                    flowTransactions.first()
+                } else {
+                    flowTransactions.toCollapsedInternalFlow()
+                }
+            }
+            .sortedByDescending { it.occurredAt }
+
+    private fun List<Transaction>.toCollapsedInternalFlow(): Transaction {
+        val flowId = firstNotNullOfOrNull { it.flowId }
+        val primary = firstOrNull { it.id == flowId } ?: maxBy { it.occurredAt }
+        val debitProvider = firstOrNull { it.direction == com.kevin.financeguardian.domain.model.TransactionDirection.DEBIT }
+            ?.provider
+            ?.toDisplayName()
+        val creditProvider = firstOrNull { it.direction == com.kevin.financeguardian.domain.model.TransactionDirection.CREDIT }
+            ?.provider
+            ?.toDisplayName()
+        val displayName = when {
+            debitProvider != null && creditProvider != null && debitProvider != creditProvider -> "$debitProvider -> $creditProvider"
+            else -> "Internal transfer"
+        }
+        return primary.copy(
+            amountMinor = maxOf { it.amountMinor },
+            counterpartyName = displayName,
+            balanceAfterMinor = null,
+            categoryId = primary.categoryId ?: "transfers",
+            moneyMovementType = MoneyMovementType.INTERNAL_TRANSFER,
+            plannedUse = firstNotNullOfOrNull { it.plannedUse },
+            includedInSpendingTotals = false,
+            includedInIncomeTotals = false,
+        )
+    }
 
     private fun String.providerSortOrder(): Int =
         when (this) {
@@ -177,6 +238,7 @@ class TransactionsViewModel @Inject constructor(
     ): TransactionListItem {
         val categoryName = categoryId
             ?.let { categoryById[it]?.name }
+            ?: if (moneyMovementType == MoneyMovementType.INTERNAL_TRANSFER) "Transfers" else null
             ?: "Unknown"
         return TransactionListItem(
             id = id,
@@ -278,8 +340,15 @@ data class TransactionsUiState(
     val incomeMinor: Long = 0L,
     val expensesMinor: Long = 0L,
     val savingsMinor: Long = 0L,
+    val balancesVisible: Boolean = true,
     val receiveSmsGranted: Boolean = false,
     val isEmpty: Boolean = true,
+)
+
+private data class TransactionUiInputs(
+    val transactions: List<Transaction>,
+    val categoryEntities: List<com.kevin.financeguardian.data.local.entity.CategoryEntity>,
+    val balancesVisible: Boolean,
 )
 
 data class ProviderBalanceSnapshot(

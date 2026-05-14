@@ -78,6 +78,30 @@ interface TransactionDao {
         updatedAt: Instant,
     )
 
+    @Query(
+        """
+        UPDATE transactions
+        SET categoryId = :categoryId,
+            moneyMovementType = :type,
+            flowType = :flowType,
+            flowStatus = :flowStatus,
+            includedInSpendingTotals = :includedInSpendingTotals,
+            includedInIncomeTotals = :includedInIncomeTotals,
+            updatedAt = :updatedAt
+        WHERE flowId = :flowId OR id = :flowId
+        """,
+    )
+    suspend fun updateFlowCorrection(
+        flowId: String,
+        categoryId: String?,
+        type: MoneyMovementType,
+        flowType: TransactionFlowType?,
+        flowStatus: TransactionFlowStatus?,
+        includedInSpendingTotals: Boolean,
+        includedInIncomeTotals: Boolean,
+        updatedAt: Instant,
+    )
+
     @Query("DELETE FROM transactions WHERE id IN (:ids)")
     suspend fun deleteByIds(ids: List<String>)
 

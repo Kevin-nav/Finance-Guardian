@@ -250,6 +250,15 @@ class SmsIngestionService @Inject constructor(
                 flowType = flowDraft.flowType,
                 flowStatus = flowDraft.status,
                 plannedUse = flowDraft.plannedUse,
+                eventChannel = event.channel,
+                eventSourceInstrumentType = event.sourceInstrument?.type,
+                eventSourceInstrumentProvider = event.sourceInstrument?.provider,
+                eventSourceInstrumentIdentifier = event.sourceInstrument?.identifier,
+                eventDestinationInstrumentType = event.destinationInstrument?.type,
+                eventDestinationInstrumentProvider = event.destinationInstrument?.provider,
+                eventDestinationInstrumentIdentifier = event.destinationInstrument?.identifier,
+                eventProviderReference = event.providerReference,
+                eventInferredIdentifiers = event.inferredIdentifiers.encodeIdentifiers(),
                 includedInSpendingTotals = flowDraft.includedInSpendingTotals,
                 includedInIncomeTotals = flowDraft.includedInIncomeTotals,
                 confidence = result.confidence,
@@ -435,22 +444,50 @@ class SmsIngestionService @Inject constructor(
             occurredAt = occurredAt,
             amountMinor = amountMinor,
             directionFromProviderPerspective = direction,
-            channel = when (flowType) {
-                TransactionFlowType.INTERNAL_TRANSFER -> MoneyMovementChannel.UNKNOWN
+            channel = eventChannel ?: when (flowType) {
                 TransactionFlowType.CASH_DEPOSIT -> MoneyMovementChannel.CASH_DEPOSIT
                 TransactionFlowType.CARD_SPEND -> MoneyMovementChannel.CARD_SPEND
                 else -> MoneyMovementChannel.UNKNOWN
             },
+            sourceInstrument = eventSourceInstrumentIdentifier?.let { identifier ->
+                com.kevin.financeguardian.domain.parser.ParsedInstrument(
+                    type = eventSourceInstrumentType ?: com.kevin.financeguardian.domain.model.InstrumentType.UNKNOWN,
+                    provider = eventSourceInstrumentProvider ?: com.kevin.financeguardian.domain.model.InstrumentProvider.UNKNOWN,
+                    identifier = identifier,
+                    inferred = true,
+                )
+            },
+            destinationInstrument = eventDestinationInstrumentIdentifier?.let { identifier ->
+                com.kevin.financeguardian.domain.parser.ParsedInstrument(
+                    type = eventDestinationInstrumentType ?: com.kevin.financeguardian.domain.model.InstrumentType.UNKNOWN,
+                    provider = eventDestinationInstrumentProvider ?: com.kevin.financeguardian.domain.model.InstrumentProvider.UNKNOWN,
+                    identifier = identifier,
+                    inferred = true,
+                )
+            },
             counterpartyName = counterpartyName,
             counterpartyPhone = counterpartyPhone,
             providerTransactionId = providerTransactionId,
-            providerReference = reference,
+            providerReference = eventProviderReference ?: reference,
             description = reference,
             plannedUse = plannedUse,
             balanceAfterMinor = balanceAfterMinor,
             balanceReliability = balanceReliability,
+            inferredIdentifiers = eventInferredIdentifiers.decodeIdentifiers(),
             confidence = confidence,
         )
+
+    private fun List<String>.encodeIdentifiers(): String? =
+        takeIf { it.isNotEmpty() }?.joinToString("|") {
+            it.replace("%", "%25").replace("|", "%7C")
+        }
+
+    private fun String?.decodeIdentifiers(): List<String> =
+        this
+            ?.split("|")
+            ?.map { it.replace("%7C", "|").replace("%25", "%") }
+            ?.filter { it.isNotBlank() }
+            .orEmpty()
 
     private data class ParsedPersistence(
         val ingestionResult: SmsIngestionResult,

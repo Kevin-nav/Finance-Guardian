@@ -3,7 +3,10 @@ package com.kevin.financeguardian.data.local.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.kevin.financeguardian.domain.model.InstrumentProvider
+import com.kevin.financeguardian.domain.model.InstrumentType
 import com.kevin.financeguardian.domain.parser.BalanceReliability
+import com.kevin.financeguardian.domain.parser.MoneyMovementChannel
 import com.kevin.financeguardian.domain.parser.TransactionFlowStatus
 import com.kevin.financeguardian.domain.parser.TransactionFlowType
 import com.kevin.financeguardian.domain.model.MoneyMovementType
@@ -42,6 +45,15 @@ data class TransactionEntity(
     val flowType: TransactionFlowType? = null,
     val flowStatus: TransactionFlowStatus? = null,
     val plannedUse: String? = null,
+    val eventChannel: MoneyMovementChannel? = null,
+    val eventSourceInstrumentType: InstrumentType? = null,
+    val eventSourceInstrumentProvider: InstrumentProvider? = null,
+    val eventSourceInstrumentIdentifier: String? = null,
+    val eventDestinationInstrumentType: InstrumentType? = null,
+    val eventDestinationInstrumentProvider: InstrumentProvider? = null,
+    val eventDestinationInstrumentIdentifier: String? = null,
+    val eventProviderReference: String? = null,
+    val eventInferredIdentifiers: String? = null,
     val includedInSpendingTotals: Boolean = moneyMovementType == MoneyMovementType.EXPENSE ||
         moneyMovementType == MoneyMovementType.SUBSCRIPTION_CANDIDATE ||
         (moneyMovementType == MoneyMovementType.UNKNOWN && direction == TransactionDirection.DEBIT),

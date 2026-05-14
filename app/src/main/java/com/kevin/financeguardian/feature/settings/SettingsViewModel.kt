@@ -50,6 +50,7 @@ class SettingsViewModel @Inject constructor(
                 debugParserModeEnabled = preferences.debugParserModeEnabled,
                 notificationsEnabled = preferences.notificationsEnabled,
                 proactiveInsightsEnabled = preferences.proactiveInsightsEnabled,
+                balancesVisible = preferences.balancesVisible,
                 showAmountsOnLockScreen = preferences.showAmountsOnLockScreen,
                 ownedWallets = preferences.ownedWallets,
                 permissions = permissions,
@@ -102,6 +103,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setProactiveInsightsEnabled(enabled: Boolean) {
         viewModelScope.launch { userPreferencesRepository.setProactiveInsightsEnabled(enabled) }
+    }
+
+    fun setBalancesVisible(visible: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setBalancesVisible(visible) }
     }
 
     fun setShowAmountsOnLockScreen(enabled: Boolean) {
@@ -234,6 +239,7 @@ data class SettingsUiState(
     val debugParserModeEnabled: Boolean = false,
     val notificationsEnabled: Boolean = true,
     val proactiveInsightsEnabled: Boolean = true,
+    val balancesVisible: Boolean = true,
     val showAmountsOnLockScreen: Boolean = true,
     val ownedWallets: List<OwnedInstrument> = emptyList(),
     val permissions: AppPermissionStatuses = AppPermissionStatuses(

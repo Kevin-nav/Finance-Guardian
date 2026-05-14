@@ -26,6 +26,7 @@ class UserPreferencesRepository @Inject constructor(
             onboardingCompleted = values[ONBOARDING_COMPLETED] ?: false,
             notificationsEnabled = values[NOTIFICATIONS_ENABLED] ?: true,
             proactiveInsightsEnabled = values[PROACTIVE_INSIGHTS_ENABLED] ?: true,
+            balancesVisible = values[BALANCES_VISIBLE] ?: true,
             showAmountsOnLockScreen = values[SHOW_AMOUNTS_ON_LOCK_SCREEN] ?: true,
             ownedWallets = decodeWallets(values[OWNED_WALLETS].orEmpty()),
         )
@@ -53,6 +54,10 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun setProactiveInsightsEnabled(enabled: Boolean) {
         dataStore.edit { values -> values[PROACTIVE_INSIGHTS_ENABLED] = enabled }
+    }
+
+    suspend fun setBalancesVisible(visible: Boolean) {
+        dataStore.edit { values -> values[BALANCES_VISIBLE] = visible }
     }
 
     suspend fun setShowAmountsOnLockScreen(enabled: Boolean) {
@@ -128,6 +133,7 @@ class UserPreferencesRepository @Inject constructor(
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         val PROACTIVE_INSIGHTS_ENABLED = booleanPreferencesKey("proactive_insights_enabled")
+        val BALANCES_VISIBLE = booleanPreferencesKey("balances_visible")
         val SHOW_AMOUNTS_ON_LOCK_SCREEN = booleanPreferencesKey("show_amounts_on_lock_screen")
         val OWNED_WALLETS = stringPreferencesKey("owned_wallets")
     }

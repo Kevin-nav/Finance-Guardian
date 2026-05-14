@@ -31,6 +31,7 @@ class UserPreferencesRepositoryTest {
                 onboardingCompleted = false,
                 notificationsEnabled = true,
                 proactiveInsightsEnabled = true,
+                balancesVisible = true,
                 showAmountsOnLockScreen = true,
             ),
             repository.preferences.first(),
@@ -89,6 +90,15 @@ class UserPreferencesRepositoryTest {
         repository.setProactiveInsightsEnabled(false)
 
         assertEquals(false, repository.preferences.first().proactiveInsightsEnabled)
+    }
+
+    @Test
+    fun setBalancesVisiblePersists() = runTest {
+        val repository = repository("balances-visible.preferences_pb")
+
+        repository.setBalancesVisible(false)
+
+        assertEquals(false, repository.preferences.first().balancesVisible)
     }
 
     @Test

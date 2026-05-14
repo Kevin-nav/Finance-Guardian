@@ -9,6 +9,7 @@ data class UserPreferences(
     val onboardingCompleted: Boolean = false,
     val notificationsEnabled: Boolean = true,
     val proactiveInsightsEnabled: Boolean = true,
+    val balancesVisible: Boolean = true,
     val showAmountsOnLockScreen: Boolean = true,
     val ownedWallets: List<OwnedInstrument> = emptyList(),
 )
