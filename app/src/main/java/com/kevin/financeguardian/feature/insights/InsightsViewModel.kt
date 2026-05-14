@@ -218,7 +218,7 @@ class InsightsViewModel @Inject constructor(
     }
 
     private fun Transaction.isCashOutflowForInsights(): Boolean =
-        includedInSpendingTotals
+        includedInSpendingTotals || moneyMovementType == MoneyMovementType.SAVINGS_CONTRIBUTION
 
     private fun Transaction.displayName(): String =
         counterpartyName?.takeIf { it.isNotBlank() }

@@ -19,7 +19,7 @@ class TransactionFlowMatcherTest {
 
     @Test
     fun matchesWalletTransferWithinTenHours() {
-        assertTrue(matcher.match(telecelDebit(now), mtnCredit(now.plusHours(9))).matched)
+        assertTrue(matcher.match(telecelDebit(now), mtnCredit(now.plus(Duration.ofHours(9)))).matched)
     }
 
     @Test
@@ -32,7 +32,7 @@ class TransactionFlowMatcherTest {
 
     @Test
     fun doesNotMatchBeyondTenHoursWithoutExactReference() {
-        assertFalse(matcher.match(telecelDebit(now), mtnCredit(now.plusHours(11))).matched)
+        assertFalse(matcher.match(telecelDebit(now), mtnCredit(now.plus(Duration.ofHours(11)))).matched)
     }
 
     private fun telecelDebit(at: Instant) = ParsedTransactionEvent(

@@ -28,11 +28,11 @@ data class Transaction(
     val flowType: TransactionFlowType? = null,
     val flowStatus: TransactionFlowStatus? = null,
     val plannedUse: String? = null,
-    val includedInSpendingTotals: Boolean = moneyMovementType != MoneyMovementType.INTERNAL_TRANSFER &&
-        moneyMovementType != MoneyMovementType.SAVINGS_CONTRIBUTION &&
-        direction == TransactionDirection.DEBIT,
-    val includedInIncomeTotals: Boolean = moneyMovementType != MoneyMovementType.INTERNAL_TRANSFER &&
-        direction == TransactionDirection.CREDIT,
+    val includedInSpendingTotals: Boolean = moneyMovementType == MoneyMovementType.EXPENSE ||
+        moneyMovementType == MoneyMovementType.SUBSCRIPTION_CANDIDATE ||
+        (moneyMovementType == MoneyMovementType.UNKNOWN && direction == TransactionDirection.DEBIT),
+    val includedInIncomeTotals: Boolean = moneyMovementType == MoneyMovementType.INCOME ||
+        (moneyMovementType == MoneyMovementType.UNKNOWN && direction == TransactionDirection.CREDIT),
     val confidence: Float,
     val createdAt: Instant,
     val updatedAt: Instant,

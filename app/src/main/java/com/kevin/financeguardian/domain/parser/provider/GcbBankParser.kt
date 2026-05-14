@@ -170,11 +170,11 @@ private object GcbDescriptionParser {
     }
 
     private fun parseBankToWallet(description: String): GcbDescriptionFacts? {
-        val match = Regex("""(?i)^Bank to Wallet\s+(\+?[0-9 ]{9,16})\s*(.*)$""").find(description) ?: return null
+        val match = Regex("""(?i)^Bank to Wallet\s+(\+?(?:233|0)?[0-9]{9})\s*(.*)$""").find(description) ?: return null
         val phone = GhanaPhoneNumberNormalizer.normalize(match.groupValues[1])?.canonical
         val tail = match.groupValues[2].trim()
         val tokens = tail.split(Regex("""\s+""")).filter { it.isNotBlank() }
-        val internalId = tokens.lastOrNull()?.takeIf { it.matches(Regex("""(?i)T[0-9]*|[0-9A-Z]{6,}""")) }
+        val internalId = tokens.lastOrNull()?.takeIf { it.matches(Regex("""T[0-9]*|[0-9A-Z]{6,}""")) }
         val plannedUse = tokens.dropLast(if (internalId != null) 1 else 0).joinToString(" ").ifBlank { null }
         val destination = ParsedInstrument(
             type = InstrumentType.WALLET,
@@ -193,7 +193,7 @@ private object GcbDescriptionParser {
     }
 
     private fun parseB2w(description: String): GcbDescriptionFacts? {
-        val match = Regex("""(?i)^B2W\s+(?:MTN|TELECEL)?\s*(\+?[0-9 ]{9,16})\s*(.*)$""").find(description) ?: return null
+        val match = Regex("""(?i)^B2W\s+(?:MTN|TELECEL)?\s*(\+?(?:233|0)?[0-9]{9})\s*(.*)$""").find(description) ?: return null
         val phone = GhanaPhoneNumberNormalizer.normalize(match.groupValues[1])?.canonical
         val tokens = match.groupValues[2].trim().split(Regex("""\s+""")).filter { it.isNotBlank() }
         val internalId = tokens.lastOrNull()?.takeIf { it.matches(Regex("""[0-9A-Z]{6,}""")) }
@@ -208,7 +208,7 @@ private object GcbDescriptionParser {
     }
 
     private fun parseWalletToBank(description: String): GcbDescriptionFacts? {
-        val match = Regex("""(?i)^Wallet to Bank\s+(\+?[0-9 ]{9,16})\s*(.*)$""").find(description) ?: return null
+        val match = Regex("""(?i)^Wallet to Bank\s+(\+?(?:233|0)?[0-9]{9})\s*(.*)$""").find(description) ?: return null
         val phone = GhanaPhoneNumberNormalizer.normalize(match.groupValues[1])?.canonical
         val internalId = match.groupValues[2].trim().takeIf { it.isNotBlank() }
         return GcbDescriptionFacts(

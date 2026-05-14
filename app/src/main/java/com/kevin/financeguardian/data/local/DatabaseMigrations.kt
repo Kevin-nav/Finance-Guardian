@@ -63,12 +63,12 @@ object DatabaseMigrations {
                 """
                 UPDATE transactions
                 SET includedInSpendingTotals = CASE
-                    WHEN direction = 'DEBIT'
-                        AND moneyMovementType NOT IN ('INTERNAL_TRANSFER', 'SAVINGS_CONTRIBUTION')
+                    WHEN moneyMovementType IN ('EXPENSE', 'SUBSCRIPTION_CANDIDATE')
+                        OR (moneyMovementType = 'UNKNOWN' AND direction = 'DEBIT')
                     THEN 1 ELSE 0 END,
                     includedInIncomeTotals = CASE
-                    WHEN direction = 'CREDIT'
-                        AND moneyMovementType != 'INTERNAL_TRANSFER'
+                    WHEN moneyMovementType = 'INCOME'
+                        OR (moneyMovementType = 'UNKNOWN' AND direction = 'CREDIT')
                     THEN 1 ELSE 0 END
                 """.trimIndent(),
             )
