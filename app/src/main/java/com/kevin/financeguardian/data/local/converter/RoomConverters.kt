@@ -6,6 +6,9 @@ import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.ParseStatus
 import com.kevin.financeguardian.domain.model.Provider
 import com.kevin.financeguardian.domain.model.TransactionDirection
+import com.kevin.financeguardian.domain.parser.BalanceReliability
+import com.kevin.financeguardian.domain.parser.TransactionFlowStatus
+import com.kevin.financeguardian.domain.parser.TransactionFlowType
 import java.time.Instant
 
 class RoomConverters {
@@ -46,4 +49,22 @@ class RoomConverters {
 
     @TypeConverter
     fun stringToParseStatus(value: String?): ParseStatus? = value?.let(ParseStatus::valueOf)
+
+    @TypeConverter
+    fun balanceReliabilityToString(value: BalanceReliability?): String? = value?.name
+
+    @TypeConverter
+    fun stringToBalanceReliability(value: String?): BalanceReliability? = value?.let(BalanceReliability::valueOf)
+
+    @TypeConverter
+    fun transactionFlowTypeToString(value: TransactionFlowType?): String? = value?.name
+
+    @TypeConverter
+    fun stringToTransactionFlowType(value: String?): TransactionFlowType? = value?.let(TransactionFlowType::valueOf)
+
+    @TypeConverter
+    fun transactionFlowStatusToString(value: TransactionFlowStatus?): String? = value?.name
+
+    @TypeConverter
+    fun stringToTransactionFlowStatus(value: String?): TransactionFlowStatus? = value?.let(TransactionFlowStatus::valueOf)
 }

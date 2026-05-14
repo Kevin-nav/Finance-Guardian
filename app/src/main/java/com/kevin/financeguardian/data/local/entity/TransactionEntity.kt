@@ -3,6 +3,9 @@ package com.kevin.financeguardian.data.local.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.kevin.financeguardian.domain.parser.BalanceReliability
+import com.kevin.financeguardian.domain.parser.TransactionFlowStatus
+import com.kevin.financeguardian.domain.parser.TransactionFlowType
 import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.Provider
 import com.kevin.financeguardian.domain.model.TransactionDirection
@@ -33,7 +36,17 @@ data class TransactionEntity(
     val counterpartyPhone: String?,
     val reference: String?,
     val balanceAfterMinor: Long?,
+    val balanceReliability: BalanceReliability = BalanceReliability.UNKNOWN,
     val categoryId: String?,
+    val flowId: String? = null,
+    val flowType: TransactionFlowType? = null,
+    val flowStatus: TransactionFlowStatus? = null,
+    val plannedUse: String? = null,
+    val includedInSpendingTotals: Boolean = moneyMovementType != MoneyMovementType.INTERNAL_TRANSFER &&
+        moneyMovementType != MoneyMovementType.SAVINGS_CONTRIBUTION &&
+        direction == TransactionDirection.DEBIT,
+    val includedInIncomeTotals: Boolean = moneyMovementType != MoneyMovementType.INTERNAL_TRANSFER &&
+        direction == TransactionDirection.CREDIT,
     val confidence: Float,
     val createdAt: Instant,
     val updatedAt: Instant,

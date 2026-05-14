@@ -254,8 +254,35 @@ fun SettingsRoute(
 
         Spacer(modifier = Modifier.height(spacing.md))
 
-        // ── Appearance (placeholder) ────────────────────────────────────
         AnimatedSettingsSection(visible = showSection3, index = 3) {
+            SettingsSectionLabel(text = "Accounts & Wallets")
+
+            SettingsGroupCard {
+                if (uiState.ownedWallets.isEmpty()) {
+                    SettingsInfoRow(
+                        icon = Icons.Filled.Security,
+                        iconTint = MaterialTheme.colorScheme.primary,
+                        title = "Owned wallets",
+                        value = "Not set",
+                    )
+                } else {
+                    uiState.ownedWallets.forEachIndexed { index, wallet ->
+                        if (index > 0) SettingsRowDivider()
+                        SettingsInfoRow(
+                            icon = Icons.Filled.Security,
+                            iconTint = MaterialTheme.colorScheme.primary,
+                            title = wallet.label,
+                            value = wallet.displayIdentifier,
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(spacing.md))
+
+        // ── Appearance (placeholder) ────────────────────────────────────
+        AnimatedSettingsSection(visible = showSection3, index = 4) {
             SettingsSectionLabel(text = "Notifications & Alerts")
 
             SettingsGroupCard {
@@ -295,7 +322,7 @@ fun SettingsRoute(
         Spacer(modifier = Modifier.height(spacing.md))
 
         // ── About ───────────────────────────────────────────────────────
-        AnimatedSettingsSection(visible = showSection4, index = 4) {
+        AnimatedSettingsSection(visible = showSection4, index = 5) {
             SettingsSectionLabel(text = "Appearance")
 
             SettingsGroupCard {
@@ -310,7 +337,7 @@ fun SettingsRoute(
 
         Spacer(modifier = Modifier.height(spacing.md))
 
-        AnimatedSettingsSection(visible = showSection5, index = 5) {
+        AnimatedSettingsSection(visible = showSection5, index = 6) {
             SettingsSectionLabel(text = "About")
 
             SettingsGroupCard {

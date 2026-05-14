@@ -7,6 +7,8 @@ import androidx.room.Query
 import androidx.room.Update
 import com.kevin.financeguardian.data.local.entity.TransactionEntity
 import com.kevin.financeguardian.domain.model.MoneyMovementType
+import com.kevin.financeguardian.domain.parser.TransactionFlowStatus
+import com.kevin.financeguardian.domain.parser.TransactionFlowType
 import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 
@@ -49,6 +51,30 @@ interface TransactionDao {
     suspend fun updateMoneyMovementType(
         transactionId: String,
         type: MoneyMovementType,
+        updatedAt: Instant,
+    )
+
+    @Query(
+        """
+        UPDATE transactions
+        SET flowId = :flowId,
+            flowType = :flowType,
+            flowStatus = :flowStatus,
+            plannedUse = :plannedUse,
+            includedInSpendingTotals = :includedInSpendingTotals,
+            includedInIncomeTotals = :includedInIncomeTotals,
+            updatedAt = :updatedAt
+        WHERE id = :transactionId
+        """,
+    )
+    suspend fun updateFlowMetadata(
+        transactionId: String,
+        flowId: String?,
+        flowType: TransactionFlowType?,
+        flowStatus: TransactionFlowStatus?,
+        plannedUse: String?,
+        includedInSpendingTotals: Boolean,
+        includedInIncomeTotals: Boolean,
         updatedAt: Instant,
     )
 

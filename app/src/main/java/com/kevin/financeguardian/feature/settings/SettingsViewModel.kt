@@ -14,6 +14,9 @@ import com.kevin.financeguardian.data.fixture.SmsFixtureImporter
 import com.kevin.financeguardian.data.local.AppDataResetter
 import com.kevin.financeguardian.data.preferences.UserPreferencesRepository
 import com.kevin.financeguardian.data.sms.SmsIngestionResult
+import com.kevin.financeguardian.domain.model.InstrumentProvider
+import com.kevin.financeguardian.domain.model.InstrumentType
+import com.kevin.financeguardian.domain.model.OwnedInstrument
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,6 +51,7 @@ class SettingsViewModel @Inject constructor(
                 notificationsEnabled = preferences.notificationsEnabled,
                 proactiveInsightsEnabled = preferences.proactiveInsightsEnabled,
                 showAmountsOnLockScreen = preferences.showAmountsOnLockScreen,
+                ownedWallets = preferences.ownedWallets,
                 permissions = permissions,
                 isResetInProgress = isResetting,
             )
@@ -102,6 +106,30 @@ class SettingsViewModel @Inject constructor(
 
     fun setShowAmountsOnLockScreen(enabled: Boolean) {
         viewModelScope.launch { userPreferencesRepository.setShowAmountsOnLockScreen(enabled) }
+    }
+
+    fun addOrUpdateOwnedWallet(
+        id: String,
+        label: String,
+        provider: InstrumentProvider,
+        phoneNumber: String,
+    ) {
+        viewModelScope.launch {
+            userPreferencesRepository.addOrUpdateOwnedWallet(
+                OwnedInstrument(
+                    id = id.ifBlank { phoneNumber },
+                    label = label.ifBlank { provider.name },
+                    type = InstrumentType.WALLET,
+                    provider = provider,
+                    identifier = phoneNumber,
+                    displayIdentifier = phoneNumber,
+                ),
+            )
+        }
+    }
+
+    fun removeOwnedWallet(id: String) {
+        viewModelScope.launch { userPreferencesRepository.removeOwnedWallet(id) }
     }
 
     fun refreshPermissions() {
@@ -207,6 +235,7 @@ data class SettingsUiState(
     val notificationsEnabled: Boolean = true,
     val proactiveInsightsEnabled: Boolean = true,
     val showAmountsOnLockScreen: Boolean = true,
+    val ownedWallets: List<OwnedInstrument> = emptyList(),
     val permissions: AppPermissionStatuses = AppPermissionStatuses(
         receiveSmsGranted = false,
         postNotificationsGranted = false,

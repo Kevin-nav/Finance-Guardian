@@ -63,7 +63,7 @@ class InsightsViewModel @Inject constructor(
     ): InsightsUiState {
         val categoryById = categories.associateBy { it.id }
         val incomeMinor = transactions
-            .filter { it.isIncome() }
+            .filter { it.includedInIncomeTotals }
             .sumOf { it.amountMinor }
         val spendingTransactions = transactions.filter { it.isCashOutflowForInsights() }
         val spendingMinor = spendingTransactions.sumOf { it.amountMinor }
@@ -217,12 +217,8 @@ class InsightsViewModel @Inject constructor(
             .take(5)
     }
 
-    private fun Transaction.isIncome(): Boolean =
-        effectiveIsCredit()
-
     private fun Transaction.isCashOutflowForInsights(): Boolean =
-        !effectiveIsCredit() &&
-            moneyMovementType != MoneyMovementType.INTERNAL_TRANSFER
+        includedInSpendingTotals
 
     private fun Transaction.displayName(): String =
         counterpartyName?.takeIf { it.isNotBlank() }

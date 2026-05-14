@@ -49,4 +49,29 @@ object DatabaseMigrations {
             )
         }
     }
+
+    val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE transactions ADD COLUMN balanceReliability TEXT NOT NULL DEFAULT 'UNKNOWN'")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN flowId TEXT")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN flowType TEXT")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN flowStatus TEXT")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN plannedUse TEXT")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN includedInSpendingTotals INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN includedInIncomeTotals INTEGER NOT NULL DEFAULT 0")
+            db.execSQL(
+                """
+                UPDATE transactions
+                SET includedInSpendingTotals = CASE
+                    WHEN direction = 'DEBIT'
+                        AND moneyMovementType NOT IN ('INTERNAL_TRANSFER', 'SAVINGS_CONTRIBUTION')
+                    THEN 1 ELSE 0 END,
+                    includedInIncomeTotals = CASE
+                    WHEN direction = 'CREDIT'
+                        AND moneyMovementType != 'INTERNAL_TRANSFER'
+                    THEN 1 ELSE 0 END
+                """.trimIndent(),
+            )
+        }
+    }
 }

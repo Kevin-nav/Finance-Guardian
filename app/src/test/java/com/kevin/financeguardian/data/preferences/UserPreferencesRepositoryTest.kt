@@ -1,6 +1,9 @@
 package com.kevin.financeguardian.data.preferences
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import com.kevin.financeguardian.domain.model.InstrumentProvider
+import com.kevin.financeguardian.domain.model.InstrumentType
+import com.kevin.financeguardian.domain.model.OwnedInstrument
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -95,6 +98,47 @@ class UserPreferencesRepositoryTest {
         repository.setShowAmountsOnLockScreen(false)
 
         assertEquals(false, repository.preferences.first().showAmountsOnLockScreen)
+    }
+
+    @Test
+    fun savesOnlyOneNormalizedMtnWallet() = runTest {
+        val repository = repository("wallet-mtn.preferences_pb")
+
+        repository.setOwnedWallets(
+            listOf(OwnedInstrument("mtn", "My MTN", InstrumentType.WALLET, InstrumentProvider.MTN, "0549037907")),
+        )
+
+        val wallets = repository.preferences.first().ownedWallets
+        assertEquals(1, wallets.size)
+        assertEquals("233549037907", wallets.single().identifier)
+    }
+
+    @Test
+    fun savesOnlyTelecelWithoutMtnOrGcb() = runTest {
+        val repository = repository("wallet-telecel.preferences_pb")
+
+        repository.addOrUpdateOwnedWallet(
+            OwnedInstrument("telecel", "Telecel", InstrumentType.WALLET, InstrumentProvider.TELECEL, "+233 50 560 0861"),
+        )
+
+        val wallets = repository.preferences.first().ownedWallets
+        assertEquals(listOf(InstrumentProvider.TELECEL), wallets.map { it.provider })
+    }
+
+    @Test
+    fun updatesWalletLabelAndRemovesWallet() = runTest {
+        val repository = repository("wallet-update.preferences_pb")
+
+        repository.addOrUpdateOwnedWallet(
+            OwnedInstrument("mtn", "Old", InstrumentType.WALLET, InstrumentProvider.MTN, "0549037907"),
+        )
+        repository.addOrUpdateOwnedWallet(
+            OwnedInstrument("mtn", "New", InstrumentType.WALLET, InstrumentProvider.MTN, "+233549037907"),
+        )
+        assertEquals("New", repository.preferences.first().ownedWallets.single().label)
+
+        repository.removeOwnedWallet("mtn")
+        assertEquals(emptyList<OwnedInstrument>(), repository.preferences.first().ownedWallets)
     }
 
     private fun repository(fileName: String): UserPreferencesRepository {

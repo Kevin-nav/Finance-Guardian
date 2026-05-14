@@ -132,10 +132,10 @@ class TransactionsViewModel @Inject constructor(
             totalBalanceMinor = providerBalances.sumOf { it.balanceMinor },
             providerBalances = providerBalances,
             incomeMinor = transactions
-                .filter { it.isIncome() }
+                .filter { it.includedInIncomeTotals }
                 .sumOf { it.amountMinor },
             expensesMinor = transactions
-                .filter { it.isSpending() }
+                .filter { it.includedInSpendingTotals }
                 .sumOf { it.amountMinor },
             savingsMinor = transactions
                 .filter { it.moneyMovementType == MoneyMovementType.SAVINGS_CONTRIBUTION }
@@ -194,6 +194,8 @@ class TransactionsViewModel @Inject constructor(
             balanceAfterMinor = balanceAfterMinor,
             currency = currency,
             movementType = moneyMovementType,
+            plannedUse = plannedUse,
+            includedInSpendingTotals = includedInSpendingTotals,
         )
     }
 
@@ -211,10 +213,7 @@ class TransactionsViewModel @Inject constructor(
         when (filter) {
             TransactionFilter.All -> true
             TransactionFilter.Income -> isCredit
-            TransactionFilter.Expenses -> !isCredit &&
-                movementType != MoneyMovementType.INTERNAL_TRANSFER &&
-                movementType != MoneyMovementType.SAVINGS_CONTRIBUTION &&
-                !isUnknownCategory
+            TransactionFilter.Expenses -> includedInSpendingTotals && !isUnknownCategory
             TransactionFilter.Transfers -> movementType == MoneyMovementType.INTERNAL_TRANSFER
             TransactionFilter.Unknown -> isUnknownCategory || movementType == MoneyMovementType.UNKNOWN
         }
@@ -247,14 +246,6 @@ class TransactionsViewModel @Inject constructor(
             else -> date.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
         }
     }
-
-    private fun Transaction.isIncome(): Boolean =
-        effectiveIsCredit()
-
-    private fun Transaction.isSpending(): Boolean =
-        !effectiveIsCredit() &&
-            moneyMovementType != MoneyMovementType.INTERNAL_TRANSFER &&
-            moneyMovementType != MoneyMovementType.SAVINGS_CONTRIBUTION
 
     private fun Provider.toDisplayName(): String =
         when (this) {
@@ -324,6 +315,8 @@ data class TransactionListItem(
     val balanceAfterMinor: Long?,
     val currency: String,
     val movementType: MoneyMovementType,
+    val plannedUse: String?,
+    val includedInSpendingTotals: Boolean = movementType != MoneyMovementType.INTERNAL_TRANSFER && !isCredit,
 ) {
     val isUnknownCategory: Boolean =
         categoryName.equals("Unknown", ignoreCase = true) || categoryId == null

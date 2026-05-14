@@ -8,6 +8,8 @@ import com.kevin.financeguardian.data.local.dao.TransactionDao
 import com.kevin.financeguardian.data.local.entity.MerchantEntity
 import com.kevin.financeguardian.data.merchant.MerchantNormalizer
 import com.kevin.financeguardian.domain.model.MoneyMovementType
+import com.kevin.financeguardian.domain.parser.TransactionFlowStatus
+import com.kevin.financeguardian.domain.parser.TransactionFlowType
 import javax.inject.Inject
 
 class TransactionCorrectionService @Inject constructor(
@@ -29,6 +31,17 @@ class TransactionCorrectionService @Inject constructor(
         transactionDao.updateCategory(transactionId, categoryId, now)
         if (moneyMovementType != null) {
             transactionDao.updateMoneyMovementType(transactionId, moneyMovementType, now)
+            transactionDao.updateFlowMetadata(
+                transactionId = transactionId,
+                flowId = transaction.flowId ?: transaction.id,
+                flowType = moneyMovementType.toFlowType(),
+                flowStatus = TransactionFlowStatus.COMPLETE,
+                plannedUse = transaction.plannedUse,
+                includedInSpendingTotals = moneyMovementType == MoneyMovementType.EXPENSE ||
+                    moneyMovementType == MoneyMovementType.SUBSCRIPTION_CANDIDATE,
+                includedInIncomeTotals = moneyMovementType == MoneyMovementType.INCOME,
+                updatedAt = now,
+            )
         }
 
         if (saveMerchantDefault) {
@@ -73,4 +86,16 @@ class TransactionCorrectionService @Inject constructor(
 
         return TransactionCorrectionResult.Applied
     }
+
+    private fun MoneyMovementType.toFlowType(): TransactionFlowType =
+        when (this) {
+            MoneyMovementType.EXPENSE,
+            MoneyMovementType.SUBSCRIPTION_CANDIDATE,
+            -> TransactionFlowType.EXPENSE
+            MoneyMovementType.INCOME -> TransactionFlowType.INCOME
+            MoneyMovementType.INTERNAL_TRANSFER,
+            MoneyMovementType.SAVINGS_CONTRIBUTION,
+            -> TransactionFlowType.INTERNAL_TRANSFER
+            MoneyMovementType.UNKNOWN -> TransactionFlowType.UNKNOWN
+        }
 }

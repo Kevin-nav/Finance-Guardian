@@ -3,6 +3,7 @@ package com.kevin.financeguardian.domain.parser.provider
 import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.Provider
 import com.kevin.financeguardian.domain.model.TransactionDirection
+import com.kevin.financeguardian.domain.parser.MoneyMovementChannel
 import com.kevin.financeguardian.domain.parser.SmsParseInput
 import com.kevin.financeguardian.domain.parser.SmsParseResult
 import com.kevin.financeguardian.domain.parser.normalizeWhitespace
@@ -31,6 +32,7 @@ class MtnMomoParserTest {
         assertEquals("123", parsed.transaction.providerTransactionId)
         assertEquals(44961L, parsed.transaction.balanceAfterMinor)
         assertEquals(Instant.parse("2026-04-21T15:55:04Z"), parsed.transaction.occurredAt)
+        assertEquals(MoneyMovementChannel.MERCHANT_PAYMENT, parsed.transaction.event?.channel)
         assertTrue(parsed.confidence >= 0.85f)
     }
 
@@ -95,6 +97,19 @@ class MtnMomoParserTest {
         assertEquals(7700, parsed.transaction.amountMinor)
         assertEquals("SAMPLE SENDER", parsed.transaction.counterpartyName)
         assertEquals(53801L, parsed.transaction.balanceAfterMinor)
+    }
+
+    @Test
+    fun extractsCashInAndAirtimeChannels() {
+        val cashIn = parse(
+            "Cash In received for GHS 100.00 from SAMPLE AGENT. Current Balance: GHS 538.01. Transaction ID: 123.",
+        ).parsed()
+        val airtime = parse(
+            "Your payment of GHS 9.00 to MTN AIRTIME has been completed at 2026-04-21 17:35:03. Your new balance: GHS 372.96. Fee was GHS 0.00 Tax was GHS -. Reference: -. Financial Transaction Id: 79737177545.",
+        ).parsed()
+
+        assertEquals(MoneyMovementChannel.CASH_IN, cashIn.transaction.event?.channel)
+        assertEquals(MoneyMovementChannel.AIRTIME_DATA, airtime.transaction.event?.channel)
     }
 
     private fun parse(body: String): SmsParseResult? =
