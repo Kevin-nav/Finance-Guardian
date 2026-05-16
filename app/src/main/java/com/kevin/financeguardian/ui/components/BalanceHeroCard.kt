@@ -13,6 +13,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +40,8 @@ fun BalanceHeroCard(
     savingsMinor: Long,
     modifier: Modifier = Modifier,
     currency: String = "GHS",
+    balancesVisible: Boolean = true,
+    onBalancesVisibleChange: (Boolean) -> Unit = {},
 ) {
     val ext = MaterialTheme.extendedColors
     val spacing = MaterialTheme.spacing
@@ -48,17 +54,32 @@ fun BalanceHeroCard(
             .padding(spacing.lg),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        Text(
-            text = "Total Balance",
-            style = MaterialTheme.typography.labelMedium,
-            color = ext.onBalanceCard.copy(alpha = 0.8f),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = "Total Balance",
+                style = MaterialTheme.typography.labelMedium,
+                color = ext.onBalanceCard.copy(alpha = 0.8f),
+            )
+            IconButton(
+                onClick = { onBalancesVisibleChange(!balancesVisible) },
+            ) {
+                Icon(
+                    imageVector = if (balancesVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                    contentDescription = if (balancesVisible) "Hide balances" else "Show balances",
+                    tint = ext.onBalanceCard,
+                )
+            }
+        }
 
         MoneyText(
             amountMinor = totalBalanceMinor,
             currency = currency,
             style = MoneyTypography.large,
             overrideColor = ext.onBalanceCard,
+            visible = balancesVisible,
         )
 
         if (providerBalances.isNotEmpty()) {
@@ -70,6 +91,7 @@ fun BalanceHeroCard(
                     ProviderBalancePill(
                         snapshot = balance,
                         fallbackCurrency = currency,
+                        balancesVisible = balancesVisible,
                     )
                 }
             }
@@ -85,6 +107,7 @@ fun BalanceHeroCard(
                 amountMinor = incomeMinor,
                 tintColor = ext.income,
                 currency = currency,
+                visible = balancesVisible,
             )
             StatPill(
                 icon = Icons.AutoMirrored.Filled.TrendingDown,
@@ -92,6 +115,7 @@ fun BalanceHeroCard(
                 amountMinor = expensesMinor,
                 tintColor = ext.expense,
                 currency = currency,
+                visible = balancesVisible,
             )
             StatPill(
                 icon = Icons.Filled.Savings,
@@ -99,6 +123,7 @@ fun BalanceHeroCard(
                 amountMinor = savingsMinor,
                 tintColor = ext.savings,
                 currency = currency,
+                visible = balancesVisible,
             )
         }
     }
@@ -109,6 +134,7 @@ private fun ProviderBalancePill(
     snapshot: ProviderBalanceSnapshot,
     fallbackCurrency: String,
     modifier: Modifier = Modifier,
+    balancesVisible: Boolean = true,
 ) {
     val ext = MaterialTheme.extendedColors
     val spacing = MaterialTheme.spacing
@@ -132,6 +158,7 @@ private fun ProviderBalancePill(
             currency = snapshot.currency.ifBlank { fallbackCurrency },
             style = MoneyTypography.small,
             overrideColor = ext.onBalanceCard,
+            visible = balancesVisible,
         )
     }
 }

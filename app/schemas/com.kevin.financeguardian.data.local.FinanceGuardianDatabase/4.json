@@ -1,0 +1,670 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 4,
+    "identityHash": "4dd385c16e8bb7192878c1056fe1289d",
+    "entities": [
+      {
+        "tableName": "transactions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sourceMessageId` TEXT, `provider` TEXT NOT NULL, `rawSender` TEXT NOT NULL, `rawBodyHash` TEXT NOT NULL, `providerTransactionId` TEXT, `dedupeKey` TEXT, `occurredAt` INTEGER NOT NULL, `direction` TEXT NOT NULL, `moneyMovementType` TEXT NOT NULL, `amountMinor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `counterpartyName` TEXT, `counterpartyPhone` TEXT, `reference` TEXT, `balanceAfterMinor` INTEGER, `balanceReliability` TEXT NOT NULL, `categoryId` TEXT, `flowId` TEXT, `flowType` TEXT, `flowStatus` TEXT, `plannedUse` TEXT, `eventChannel` TEXT, `eventSourceInstrumentType` TEXT, `eventSourceInstrumentProvider` TEXT, `eventSourceInstrumentIdentifier` TEXT, `eventDestinationInstrumentType` TEXT, `eventDestinationInstrumentProvider` TEXT, `eventDestinationInstrumentIdentifier` TEXT, `eventProviderReference` TEXT, `eventInferredIdentifiers` TEXT, `includedInSpendingTotals` INTEGER NOT NULL, `includedInIncomeTotals` INTEGER NOT NULL, `confidence` REAL NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceMessageId",
+            "columnName": "sourceMessageId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "provider",
+            "columnName": "provider",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rawSender",
+            "columnName": "rawSender",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rawBodyHash",
+            "columnName": "rawBodyHash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "providerTransactionId",
+            "columnName": "providerTransactionId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dedupeKey",
+            "columnName": "dedupeKey",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "occurredAt",
+            "columnName": "occurredAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "direction",
+            "columnName": "direction",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "moneyMovementType",
+            "columnName": "moneyMovementType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amountMinor",
+            "columnName": "amountMinor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currency",
+            "columnName": "currency",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "counterpartyName",
+            "columnName": "counterpartyName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "counterpartyPhone",
+            "columnName": "counterpartyPhone",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "reference",
+            "columnName": "reference",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "balanceAfterMinor",
+            "columnName": "balanceAfterMinor",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "balanceReliability",
+            "columnName": "balanceReliability",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoryId",
+            "columnName": "categoryId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "flowId",
+            "columnName": "flowId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "flowType",
+            "columnName": "flowType",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "flowStatus",
+            "columnName": "flowStatus",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "plannedUse",
+            "columnName": "plannedUse",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventChannel",
+            "columnName": "eventChannel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventSourceInstrumentType",
+            "columnName": "eventSourceInstrumentType",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventSourceInstrumentProvider",
+            "columnName": "eventSourceInstrumentProvider",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventSourceInstrumentIdentifier",
+            "columnName": "eventSourceInstrumentIdentifier",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventDestinationInstrumentType",
+            "columnName": "eventDestinationInstrumentType",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventDestinationInstrumentProvider",
+            "columnName": "eventDestinationInstrumentProvider",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventDestinationInstrumentIdentifier",
+            "columnName": "eventDestinationInstrumentIdentifier",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventProviderReference",
+            "columnName": "eventProviderReference",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventInferredIdentifiers",
+            "columnName": "eventInferredIdentifiers",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "includedInSpendingTotals",
+            "columnName": "includedInSpendingTotals",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "includedInIncomeTotals",
+            "columnName": "includedInIncomeTotals",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confidence",
+            "columnName": "confidence",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_transactions_sourceMessageId",
+            "unique": true,
+            "columnNames": [
+              "sourceMessageId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_transactions_sourceMessageId` ON `${TABLE_NAME}` (`sourceMessageId`)"
+          },
+          {
+            "name": "index_transactions_occurredAt",
+            "unique": false,
+            "columnNames": [
+              "occurredAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_transactions_occurredAt` ON `${TABLE_NAME}` (`occurredAt`)"
+          },
+          {
+            "name": "index_transactions_categoryId",
+            "unique": false,
+            "columnNames": [
+              "categoryId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_transactions_categoryId` ON `${TABLE_NAME}` (`categoryId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "merchants",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `displayName` TEXT NOT NULL, `normalizedName` TEXT NOT NULL, `phone` TEXT, `defaultCategoryId` TEXT, `createdFromTransactionId` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "normalizedName",
+            "columnName": "normalizedName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phone",
+            "columnName": "phone",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "defaultCategoryId",
+            "columnName": "defaultCategoryId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdFromTransactionId",
+            "columnName": "createdFromTransactionId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_merchants_normalizedName",
+            "unique": true,
+            "columnNames": [
+              "normalizedName"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_merchants_normalizedName` ON `${TABLE_NAME}` (`normalizedName`)"
+          },
+          {
+            "name": "index_merchants_phone",
+            "unique": false,
+            "columnNames": [
+              "phone"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_merchants_phone` ON `${TABLE_NAME}` (`phone`)"
+          }
+        ]
+      },
+      {
+        "tableName": "learning_signals",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `signalKey` TEXT NOT NULL, `transactionId` TEXT, `provider` TEXT NOT NULL, `normalizedMerchantName` TEXT, `normalizedPhone` TEXT, `normalizedReference` TEXT, `amountBucket` TEXT, `direction` TEXT NOT NULL, `moneyMovementType` TEXT NOT NULL, `categoryId` TEXT, `signalType` TEXT NOT NULL, `weight` REAL NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "signalKey",
+            "columnName": "signalKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transactionId",
+            "columnName": "transactionId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "provider",
+            "columnName": "provider",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "normalizedMerchantName",
+            "columnName": "normalizedMerchantName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "normalizedPhone",
+            "columnName": "normalizedPhone",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "normalizedReference",
+            "columnName": "normalizedReference",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "amountBucket",
+            "columnName": "amountBucket",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "direction",
+            "columnName": "direction",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "moneyMovementType",
+            "columnName": "moneyMovementType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoryId",
+            "columnName": "categoryId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "signalType",
+            "columnName": "signalType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weight",
+            "columnName": "weight",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_learning_signals_signalKey",
+            "unique": true,
+            "columnNames": [
+              "signalKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_learning_signals_signalKey` ON `${TABLE_NAME}` (`signalKey`)"
+          },
+          {
+            "name": "index_learning_signals_normalizedMerchantName",
+            "unique": false,
+            "columnNames": [
+              "normalizedMerchantName"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_learning_signals_normalizedMerchantName` ON `${TABLE_NAME}` (`normalizedMerchantName`)"
+          },
+          {
+            "name": "index_learning_signals_normalizedPhone",
+            "unique": false,
+            "columnNames": [
+              "normalizedPhone"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_learning_signals_normalizedPhone` ON `${TABLE_NAME}` (`normalizedPhone`)"
+          },
+          {
+            "name": "index_learning_signals_normalizedReference",
+            "unique": false,
+            "columnNames": [
+              "normalizedReference"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_learning_signals_normalizedReference` ON `${TABLE_NAME}` (`normalizedReference`)"
+          }
+        ]
+      },
+      {
+        "tableName": "categories",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `type` TEXT NOT NULL, `isArchived` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isArchived",
+            "columnName": "isArchived",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_categories_name",
+            "unique": true,
+            "columnNames": [
+              "name"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_categories_name` ON `${TABLE_NAME}` (`name`)"
+          },
+          {
+            "name": "index_categories_type",
+            "unique": false,
+            "columnNames": [
+              "type"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_categories_type` ON `${TABLE_NAME}` (`type`)"
+          }
+        ]
+      },
+      {
+        "tableName": "sms_message_records",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `sender` TEXT NOT NULL, `bodyHash` TEXT NOT NULL, `receivedAt` INTEGER NOT NULL, `processedAt` INTEGER, `parseStatus` TEXT NOT NULL, `parseReason` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sender",
+            "columnName": "sender",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bodyHash",
+            "columnName": "bodyHash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "receivedAt",
+            "columnName": "receivedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "processedAt",
+            "columnName": "processedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "parseStatus",
+            "columnName": "parseStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "parseReason",
+            "columnName": "parseReason",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_sms_message_records_sender_bodyHash_receivedAt",
+            "unique": true,
+            "columnNames": [
+              "sender",
+              "bodyHash",
+              "receivedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_sms_message_records_sender_bodyHash_receivedAt` ON `${TABLE_NAME}` (`sender`, `bodyHash`, `receivedAt`)"
+          },
+          {
+            "name": "index_sms_message_records_parseStatus",
+            "unique": false,
+            "columnNames": [
+              "parseStatus"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_sms_message_records_parseStatus` ON `${TABLE_NAME}` (`parseStatus`)"
+          }
+        ]
+      },
+      {
+        "tableName": "parser_rules",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `provider` TEXT NOT NULL, `name` TEXT NOT NULL, `enabled` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "provider",
+            "columnName": "provider",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enabled",
+            "columnName": "enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_parser_rules_provider",
+            "unique": false,
+            "columnNames": [
+              "provider"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_parser_rules_provider` ON `${TABLE_NAME}` (`provider`)"
+          },
+          {
+            "name": "index_parser_rules_enabled",
+            "unique": false,
+            "columnNames": [
+              "enabled"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_parser_rules_enabled` ON `${TABLE_NAME}` (`enabled`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4dd385c16e8bb7192878c1056fe1289d')"
+    ]
+  }
+}

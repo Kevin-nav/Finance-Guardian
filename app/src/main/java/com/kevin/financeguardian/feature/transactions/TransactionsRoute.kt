@@ -141,6 +141,8 @@ fun TransactionsRoute(
                 incomeMinor = uiState.incomeMinor,
                 expensesMinor = uiState.expensesMinor,
                 savingsMinor = uiState.savingsMinor,
+                balancesVisible = uiState.balancesVisible,
+                onBalancesVisibleChange = viewModel::setBalancesVisible,
             )
         }
 
@@ -201,6 +203,7 @@ fun TransactionsRoute(
                     balanceAfterMinor = transaction.balanceAfterMinor,
                     currency = transaction.currency,
                     isUnknownCategory = transaction.isUnknownCategory,
+                    balancesVisible = uiState.balancesVisible,
                     onClick = { viewModel.selectTransaction(transaction.id) },
                     modifier = Modifier.animateItem(),
                 )

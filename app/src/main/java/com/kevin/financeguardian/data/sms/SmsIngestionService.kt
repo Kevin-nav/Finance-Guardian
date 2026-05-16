@@ -16,11 +16,19 @@ import com.kevin.financeguardian.data.local.entity.SmsMessageRecordEntity
 import com.kevin.financeguardian.data.local.entity.TransactionEntity
 import com.kevin.financeguardian.data.local.mapper.toDomain
 import com.kevin.financeguardian.data.merchant.MerchantCategoryResolver
+import com.kevin.financeguardian.data.preferences.UserPreferencesRepository
 import com.kevin.financeguardian.data.transaction.TransactionFingerprintFactory
+import com.kevin.financeguardian.data.transaction.TransactionFlowMatcher
 import com.kevin.financeguardian.domain.model.ParseStatus
+import com.kevin.financeguardian.domain.parser.BalanceReliability
+import com.kevin.financeguardian.domain.parser.MoneyMovementChannel
+import com.kevin.financeguardian.domain.parser.ParsedTransactionEvent
 import com.kevin.financeguardian.domain.parser.SmsParseInput
 import com.kevin.financeguardian.domain.parser.SmsParseResult
 import com.kevin.financeguardian.domain.parser.SmsTransactionParser
+import com.kevin.financeguardian.domain.parser.TransactionFlowClassifier
+import com.kevin.financeguardian.domain.parser.TransactionFlowStatus
+import com.kevin.financeguardian.domain.parser.TransactionFlowType
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
@@ -36,6 +44,9 @@ class SmsIngestionService @Inject constructor(
     private val categorySuggestionService: CategorySuggestionService,
     private val notificationDispatcher: NotificationDispatcher = NoOpNotificationDispatcher(),
     private val insightEvaluator: InsightEvaluator = InsightEvaluator(),
+    private val userPreferencesRepository: UserPreferencesRepository? = null,
+    private val flowClassifier: TransactionFlowClassifier = TransactionFlowClassifier(),
+    private val flowMatcher: TransactionFlowMatcher = TransactionFlowMatcher(),
 ) {
     suspend fun ingest(envelope: SmsMessageEnvelope): SmsIngestionResult {
         val bodyHash = BodyHasher.sha256Hex(envelope.body)
@@ -150,6 +161,13 @@ class SmsIngestionService @Inject constructor(
             now = now,
         )
         var moneyMovementType = parsed.moneyMovementType
+        val event = parsed.event ?: parsed.toFallbackEvent(result.confidence)
+        val ownedWallets = userPreferencesRepository?.preferences?.first()?.ownedWallets.orEmpty()
+        val flowDraft = flowClassifier.classify(
+            event = event,
+            userConfirmedInstruments = ownedWallets,
+        )
+        moneyMovementType = flowDraft.moneyMovementType
         if (categoryId == null) {
             val suggestion = categorySuggestionService.suggestFor(
                 com.kevin.financeguardian.domain.model.Transaction(
@@ -162,14 +180,21 @@ class SmsIngestionService @Inject constructor(
                     dedupeKey = fingerprint.dedupeKey,
                     occurredAt = parsed.occurredAt,
                     direction = parsed.direction,
-                    moneyMovementType = parsed.moneyMovementType,
+                    moneyMovementType = moneyMovementType,
                     amountMinor = parsed.amountMinor,
                     currency = parsed.currency,
                     counterpartyName = parsed.counterpartyName,
                     counterpartyPhone = parsed.counterpartyPhone,
                     reference = parsed.reference,
                     balanceAfterMinor = parsed.balanceAfterMinor,
+                    balanceReliability = event.balanceReliability,
                     categoryId = null,
+                    flowId = transactionId,
+                    flowType = flowDraft.flowType,
+                    flowStatus = flowDraft.status,
+                    plannedUse = flowDraft.plannedUse,
+                    includedInSpendingTotals = flowDraft.includedInSpendingTotals,
+                    includedInIncomeTotals = flowDraft.includedInIncomeTotals,
                     confidence = result.confidence,
                     createdAt = now,
                     updatedAt = now,
@@ -219,11 +244,32 @@ class SmsIngestionService @Inject constructor(
                 counterpartyPhone = parsed.counterpartyPhone,
                 reference = parsed.reference,
                 balanceAfterMinor = parsed.balanceAfterMinor,
+                balanceReliability = event.balanceReliability,
                 categoryId = categoryId,
+                flowId = transactionId,
+                flowType = flowDraft.flowType,
+                flowStatus = flowDraft.status,
+                plannedUse = flowDraft.plannedUse,
+                eventChannel = event.channel,
+                eventSourceInstrumentType = event.sourceInstrument?.type,
+                eventSourceInstrumentProvider = event.sourceInstrument?.provider,
+                eventSourceInstrumentIdentifier = event.sourceInstrument?.identifier,
+                eventDestinationInstrumentType = event.destinationInstrument?.type,
+                eventDestinationInstrumentProvider = event.destinationInstrument?.provider,
+                eventDestinationInstrumentIdentifier = event.destinationInstrument?.identifier,
+                eventProviderReference = event.providerReference,
+                eventInferredIdentifiers = event.inferredIdentifiers.encodeIdentifiers(),
+                includedInSpendingTotals = flowDraft.includedInSpendingTotals,
+                includedInIncomeTotals = flowDraft.includedInIncomeTotals,
                 confidence = result.confidence,
                 createdAt = now,
                 updatedAt = now,
             ),
+        )
+        linkMatchingFlowIfPresent(
+            transactionId = transactionId,
+            newEvent = event,
+            now = now,
         )
 
         return ParsedPersistence(
@@ -334,6 +380,114 @@ class SmsIngestionService @Inject constructor(
             )
         }
     }
+
+    private suspend fun linkMatchingFlowIfPresent(
+        transactionId: String,
+        newEvent: ParsedTransactionEvent,
+        now: Instant,
+    ) {
+        val candidates = transactionDao.getAllOnce().filter { it.id != transactionId }
+        val match = candidates.firstOrNull { candidate ->
+            val candidateEvent = candidate.toFallbackEvent()
+            flowMatcher.match(candidateEvent, newEvent).matched
+        } ?: return
+        val flowId = match.flowId ?: match.id
+        transactionDao.updateFlowMetadata(
+            transactionId = match.id,
+            flowId = flowId,
+            flowType = TransactionFlowType.INTERNAL_TRANSFER,
+            flowStatus = TransactionFlowStatus.COMPLETE,
+            plannedUse = match.plannedUse,
+            includedInSpendingTotals = false,
+            includedInIncomeTotals = false,
+            updatedAt = now,
+        )
+        transactionDao.updateFlowMetadata(
+            transactionId = transactionId,
+            flowId = flowId,
+            flowType = TransactionFlowType.INTERNAL_TRANSFER,
+            flowStatus = TransactionFlowStatus.COMPLETE,
+            plannedUse = newEvent.plannedUse,
+            includedInSpendingTotals = false,
+            includedInIncomeTotals = false,
+            updatedAt = now,
+        )
+    }
+
+    private fun com.kevin.financeguardian.domain.parser.ParsedTransaction.toFallbackEvent(
+        confidence: Float,
+    ): ParsedTransactionEvent =
+        ParsedTransactionEvent(
+            provider = provider,
+            occurredAt = occurredAt,
+            amountMinor = amountMinor,
+            directionFromProviderPerspective = direction,
+            channel = when (moneyMovementType) {
+                com.kevin.financeguardian.domain.model.MoneyMovementType.INTERNAL_TRANSFER -> MoneyMovementChannel.UNKNOWN
+                else -> MoneyMovementChannel.UNKNOWN
+            },
+            counterpartyName = counterpartyName,
+            counterpartyPhone = counterpartyPhone,
+            providerTransactionId = providerTransactionId,
+            providerReference = reference,
+            description = reference,
+            plannedUse = plannedUse ?: reference,
+            balanceAfterMinor = balanceAfterMinor,
+            balanceReliability = BalanceReliability.UNKNOWN,
+            confidence = confidence,
+        )
+
+    private fun TransactionEntity.toFallbackEvent(): ParsedTransactionEvent =
+        ParsedTransactionEvent(
+            provider = provider,
+            sourceMessageId = sourceMessageId,
+            occurredAt = occurredAt,
+            amountMinor = amountMinor,
+            directionFromProviderPerspective = direction,
+            channel = eventChannel ?: when (flowType) {
+                TransactionFlowType.CASH_DEPOSIT -> MoneyMovementChannel.CASH_DEPOSIT
+                TransactionFlowType.CARD_SPEND -> MoneyMovementChannel.CARD_SPEND
+                else -> MoneyMovementChannel.UNKNOWN
+            },
+            sourceInstrument = eventSourceInstrumentIdentifier?.let { identifier ->
+                com.kevin.financeguardian.domain.parser.ParsedInstrument(
+                    type = eventSourceInstrumentType ?: com.kevin.financeguardian.domain.model.InstrumentType.UNKNOWN,
+                    provider = eventSourceInstrumentProvider ?: com.kevin.financeguardian.domain.model.InstrumentProvider.UNKNOWN,
+                    identifier = identifier,
+                    inferred = true,
+                )
+            },
+            destinationInstrument = eventDestinationInstrumentIdentifier?.let { identifier ->
+                com.kevin.financeguardian.domain.parser.ParsedInstrument(
+                    type = eventDestinationInstrumentType ?: com.kevin.financeguardian.domain.model.InstrumentType.UNKNOWN,
+                    provider = eventDestinationInstrumentProvider ?: com.kevin.financeguardian.domain.model.InstrumentProvider.UNKNOWN,
+                    identifier = identifier,
+                    inferred = true,
+                )
+            },
+            counterpartyName = counterpartyName,
+            counterpartyPhone = counterpartyPhone,
+            providerTransactionId = providerTransactionId,
+            providerReference = eventProviderReference ?: reference,
+            description = reference,
+            plannedUse = plannedUse,
+            balanceAfterMinor = balanceAfterMinor,
+            balanceReliability = balanceReliability,
+            inferredIdentifiers = eventInferredIdentifiers.decodeIdentifiers(),
+            confidence = confidence,
+        )
+
+    private fun List<String>.encodeIdentifiers(): String? =
+        takeIf { it.isNotEmpty() }?.joinToString("|") {
+            it.replace("%", "%25").replace("|", "%7C")
+        }
+
+    private fun String?.decodeIdentifiers(): List<String> =
+        this
+            ?.split("|")
+            ?.map { it.replace("%7C", "|").replace("%25", "%") }
+            ?.filter { it.isNotBlank() }
+            .orEmpty()
 
     private data class ParsedPersistence(
         val ingestionResult: SmsIngestionResult,

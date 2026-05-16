@@ -29,6 +29,7 @@ fun MoneyText(
     isCredit: Boolean? = null,
     style: TextStyle = MoneyTypography.small,
     overrideColor: Color? = null,
+    visible: Boolean = true,
 ) {
     val extColors = MaterialTheme.extendedColors
     val color = overrideColor ?: when (isCredit) {
@@ -42,7 +43,7 @@ fun MoneyText(
         minimumFractionDigits = 2
         maximumFractionDigits = 2
     }
-    val formatted = formatter.format(amountMajor)
+    val formatted = if (visible) formatter.format(amountMajor) else "•••••"
     val prefix = when (isCredit) {
         true -> "+"
         false -> "−"
@@ -50,7 +51,7 @@ fun MoneyText(
     }
 
     Text(
-        text = "$prefix$currency $formatted",
+        text = if (visible) "$prefix$currency $formatted" else "$currency $formatted",
         style = style,
         color = color,
         modifier = modifier,

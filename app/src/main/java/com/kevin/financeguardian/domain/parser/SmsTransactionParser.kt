@@ -38,4 +38,10 @@ data class ParsedTransaction(
     val counterpartyPhone: String?,
     val reference: String?,
     val balanceAfterMinor: Long?,
+    val event: ParsedTransactionEvent? = null,
+    val flowType: TransactionFlowType? = null,
+    val flowStatus: TransactionFlowStatus? = null,
+    val plannedUse: String? = null,
+    val includedInSpendingTotals: Boolean? = null,
+    val includedInIncomeTotals: Boolean? = null,
 )

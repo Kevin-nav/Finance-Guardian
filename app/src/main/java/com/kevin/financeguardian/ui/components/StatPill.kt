@@ -30,6 +30,7 @@ fun StatPill(
     tintColor: Color,
     modifier: Modifier = Modifier,
     currency: String = "GHS",
+    visible: Boolean = true,
 ) {
     val ext = MaterialTheme.extendedColors
 
@@ -57,6 +58,7 @@ fun StatPill(
             currency = currency,
             style = MoneyTypography.small.copy(fontSize = MaterialTheme.typography.labelSmall.fontSize),
             overrideColor = ext.onBalanceCard,
+            visible = visible,
         )
     }
 }

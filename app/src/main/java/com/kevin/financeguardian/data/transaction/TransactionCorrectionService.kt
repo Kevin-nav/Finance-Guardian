@@ -8,6 +8,8 @@ import com.kevin.financeguardian.data.local.dao.TransactionDao
 import com.kevin.financeguardian.data.local.entity.MerchantEntity
 import com.kevin.financeguardian.data.merchant.MerchantNormalizer
 import com.kevin.financeguardian.domain.model.MoneyMovementType
+import com.kevin.financeguardian.domain.parser.TransactionFlowStatus
+import com.kevin.financeguardian.domain.parser.TransactionFlowType
 import javax.inject.Inject
 
 class TransactionCorrectionService @Inject constructor(
@@ -26,9 +28,22 @@ class TransactionCorrectionService @Inject constructor(
         val transaction = transactionDao.getById(transactionId) ?: return TransactionCorrectionResult.NotFound
         val now = clock.now()
 
-        transactionDao.updateCategory(transactionId, categoryId, now)
         if (moneyMovementType != null) {
-            transactionDao.updateMoneyMovementType(transactionId, moneyMovementType, now)
+            val includedInSpendingTotals = moneyMovementType == MoneyMovementType.EXPENSE ||
+                moneyMovementType == MoneyMovementType.SUBSCRIPTION_CANDIDATE
+            val includedInIncomeTotals = moneyMovementType == MoneyMovementType.INCOME
+            transactionDao.updateFlowCorrection(
+                flowId = transaction.flowId ?: transaction.id,
+                categoryId = categoryId,
+                type = moneyMovementType,
+                flowType = moneyMovementType.toFlowType(),
+                flowStatus = TransactionFlowStatus.COMPLETE,
+                includedInSpendingTotals = includedInSpendingTotals,
+                includedInIncomeTotals = includedInIncomeTotals,
+                updatedAt = now,
+            )
+        } else {
+            transactionDao.updateCategory(transactionId, categoryId, now)
         }
 
         if (saveMerchantDefault) {
@@ -73,4 +88,16 @@ class TransactionCorrectionService @Inject constructor(
 
         return TransactionCorrectionResult.Applied
     }
+
+    private fun MoneyMovementType.toFlowType(): TransactionFlowType =
+        when (this) {
+            MoneyMovementType.EXPENSE,
+            MoneyMovementType.SUBSCRIPTION_CANDIDATE,
+            -> TransactionFlowType.EXPENSE
+            MoneyMovementType.INCOME -> TransactionFlowType.INCOME
+            MoneyMovementType.INTERNAL_TRANSFER,
+            MoneyMovementType.SAVINGS_CONTRIBUTION,
+            -> TransactionFlowType.INTERNAL_TRANSFER
+            MoneyMovementType.UNKNOWN -> TransactionFlowType.UNKNOWN
+        }
 }

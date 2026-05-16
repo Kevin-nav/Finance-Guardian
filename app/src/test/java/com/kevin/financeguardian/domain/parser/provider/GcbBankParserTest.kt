@@ -2,6 +2,8 @@ package com.kevin.financeguardian.domain.parser.provider
 
 import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.TransactionDirection
+import com.kevin.financeguardian.domain.parser.BalanceReliability
+import com.kevin.financeguardian.domain.parser.MoneyMovementChannel
 import com.kevin.financeguardian.domain.parser.FinanceGuardianSmsParser
 import com.kevin.financeguardian.domain.parser.SmsParseInput
 import com.kevin.financeguardian.domain.parser.SmsParseResult
@@ -29,12 +31,14 @@ class GcbBankParserTest {
         ).parsed()
 
         assertEquals(TransactionDirection.DEBIT, parsed.transaction.direction)
-        assertEquals(MoneyMovementType.INTERNAL_TRANSFER, parsed.transaction.moneyMovementType)
+        assertEquals(MoneyMovementType.EXPENSE, parsed.transaction.moneyMovementType)
         assertEquals(1200, parsed.transaction.amountMinor)
         assertEquals("VISA Card Top Up SAMPLE 000000000", parsed.transaction.counterpartyName)
         assertEquals("VISA Card Top Up SAMPLE 000000000", parsed.transaction.reference)
         assertEquals(21741L, parsed.transaction.balanceAfterMinor)
         assertEquals(Instant.parse("2026-04-08T14:13:00Z"), parsed.transaction.occurredAt)
+        assertEquals(MoneyMovementChannel.CARD_TOP_UP, parsed.transaction.event?.channel)
+        assertEquals("SAMPLE 000000000", parsed.transaction.event?.destinationInstrument?.identifier)
     }
 
     @Test
@@ -52,8 +56,10 @@ class GcbBankParserTest {
         ).parsed()
 
         assertEquals(27000, parsed.transaction.amountMinor)
-        assertEquals(MoneyMovementType.INTERNAL_TRANSFER, parsed.transaction.moneyMovementType)
+        assertEquals(MoneyMovementType.EXPENSE, parsed.transaction.moneyMovementType)
         assertEquals("Bank to Wallet 0240000000 groceries", parsed.transaction.counterpartyName)
+        assertEquals(MoneyMovementChannel.BANK_TO_WALLET, parsed.transaction.event?.channel)
+        assertEquals("groceries", parsed.transaction.event?.plannedUse)
     }
 
     @Test
@@ -109,6 +115,55 @@ class GcbBankParserTest {
         assertEquals(1200, credit.transaction.amountMinor)
         assertEquals(1400L, credit.transaction.balanceAfterMinor)
         assertEquals("Prepaid Card", credit.transaction.reference)
+    }
+
+    @Test
+    fun extractsGcbBankToWalletAndWalletToBankFacts() {
+        val bankToWallet = parse(
+            """
+            Hi Customer
+            Your A/C No:XXXX4127
+            has been debited GHS60.00
+            Fees: GHS 0.60
+            Desc: Bank to Wallet 0549037907 food T260
+            Date: 2026-04-03 12:57
+            Bal: GHS 502.11
+            """.trimIndent(),
+        ).parsed()
+        val walletToBank = parse(
+            """
+            Hi Customer
+            Your A/C No:XXXX4127
+            has been credited GHS60.00
+            Desc: Wallet to Bank 0549037907 09FG04301
+            Date: 2026-04-03 13:57
+            Bal: GHS 562.11
+            """.trimIndent(),
+        ).parsed()
+
+        assertEquals(MoneyMovementChannel.BANK_TO_WALLET, bankToWallet.transaction.event?.channel)
+        assertEquals("233549037907", bankToWallet.transaction.event?.destinationInstrument?.identifier)
+        assertEquals("food", bankToWallet.transaction.event?.plannedUse)
+        assertEquals(60L, bankToWallet.transaction.event?.feeMinor)
+        assertEquals(MoneyMovementChannel.WALLET_TO_BANK, walletToBank.transaction.event?.channel)
+        assertEquals("233549037907", walletToBank.transaction.event?.sourceInstrument?.identifier)
+    }
+
+    @Test
+    fun marksNegativeGcbBalanceSuspicious() {
+        val parsed = parse(
+            """
+            Hi Customer
+            Your A/C No:XXXX4127
+            has been debited GHS12.00
+            Desc: SAMPLE
+            Date: 2026-04-08 14:13
+            Bal: GHS -1.00
+            """.trimIndent(),
+        ).parsed()
+
+        assertEquals(-100L, parsed.transaction.balanceAfterMinor)
+        assertEquals(BalanceReliability.SUSPICIOUS, parsed.transaction.event?.balanceReliability)
     }
 
     @Test

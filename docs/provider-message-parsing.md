@@ -11,8 +11,10 @@ Incoming SMS messages enter the app through `SmsBroadcastReceiver`.
 3. Multipart SMS parts are grouped by sender and timestamp, ordered, joined, and sanitized into `SmsMessageEnvelope`.
 4. `SmsIngestionService` hashes the raw body with SHA-256, checks for duplicate SMS records, and passes the sender/body/timestamp to `SmsTransactionParser`.
 5. `FinanceGuardianSmsParser` normalizes whitespace, ignores obvious non-transactional messages, detects the provider, and tries provider-specific parsers.
-6. If parsing succeeds, `SmsIngestionService` stores both an `SmsMessageRecordEntity` and a `TransactionEntity` in Room.
-7. If parsing is ignored or failed, only the SMS record is stored with the parse status and reason.
+6. Provider parsers return the legacy `ParsedTransaction` fields plus a richer `ParsedTransactionEvent` when enough facts are available.
+7. `SmsIngestionService` classifies parsed events into transaction flow metadata using owned wallet preferences and strong parsed evidence.
+8. If parsing succeeds, `SmsIngestionService` stores both an `SmsMessageRecordEntity` and a `TransactionEntity` in Room, including flow metadata on the transaction row.
+9. If parsing is ignored or failed, only the SMS record is stored with the parse status and reason.
 
 The parser itself is pure Kotlin and has no Android dependency. Hilt wires it through `ParserModule`, which provides `FinanceGuardianSmsParser` as the app's `SmsTransactionParser`.
 
@@ -34,8 +36,30 @@ Current transaction fields extracted by the parser are:
 - `counterpartyPhone`: phone number when the message exposes one.
 - `reference`: provider reference, free-text sender note, or normalized description.
 - `balanceAfterMinor`: post-transaction balance in pesewas when present.
+- `event`: optional richer event facts, including channel, instruments, fees, taxes, planned use, inferred identifiers, and balance reliability.
+- `flowType`, `flowStatus`, and `flowId`: flow-level classification persisted on the transaction row.
+- `plannedUse`: intent text such as `food`, `laundry`, or `Data`, preserved separately from accounting effect.
+- `includedInSpendingTotals` and `includedInIncomeTotals`: explicit reporting flags used by transaction and insight totals.
 
 Raw SMS bodies are not persisted in normal ingestion. The app stores `rawBodyHash` for dedupe and traceability.
+
+## Transaction events and flows
+
+The parser now separates message facts from accounting classification. The domain rule is: reason text describes intent, ownership decides accounting.
+
+`ParsedTransactionEvent` represents one SMS-side event. It can carry channel, source and destination instruments, planned use, fees, taxes, balance reliability, provider references, and inferred identifiers such as wallet phones, GCB account suffixes, and virtual-card tokens.
+
+`TransactionFlowClassifier` turns an event into flow metadata. Channel phrases such as `Bank to Wallet`, `Wallet to Bank`, `VISA Card Top Up`, and `Cash In` describe rails, not ownership. Internal transfer classification requires user-confirmed instruments or strong paired-message evidence.
+
+`TransactionFlowMatcher` links likely paired events for up to 10 hours. A first side can be visible after 1 hour as a single pending flow, and a later matching side can still attach until the 10-hour window expires. Matching scores amount, opposite direction, compatible channels, timing, provider references, and shared instrument evidence.
+
+Internal-transfer flows are excluded from income and spending totals by default. Cash-in and cash-deposit flows are distinct from ordinary income.
+
+## Owned instruments
+
+Users can optionally save any subset of their own wallets. The first implementation persists owned wallets in `UserPreferencesRepository` as typed `OwnedInstrument` values backed by DataStore.
+
+Ghana phone identities are normalized before storage and comparison. `0549037907`, `+233 54 903 7907`, and `233549037907` compare as the same wallet identity. Masked values such as `****4127` are weak evidence and are not canonical full phone numbers.
 
 ## Provider detection
 
@@ -161,9 +185,18 @@ Supported GCB message shapes:
 GCB movement-type classification has extra logic:
 
 - Credits are `INCOME`.
-- Debits whose description contains `bank to wallet`, `b2w`, or `visa card top up` are `INTERNAL_TRANSFER`.
+- Debits whose description contains `bank to wallet`, `b2w`, or `visa card top up` are not marked internal from wording alone. The parser extracts channel, source/destination instrument, planned use, fees, and inferred identifiers. The classifier decides internal-vs-external from ownership or matching evidence.
 - Debits whose description contains known subscription markers like `openai`, `chatgpt`, `spotify`, or `t3 chat` are `SUBSCRIPTION_CANDIDATE`.
 - Other debits are `EXPENSE`.
+
+GCB-specific event extraction includes:
+
+- `Bank to Wallet 0549037907 food T260`: channel `BANK_TO_WALLET`, destination phone `233549037907`, planned use `food`, inferred id `T260`.
+- `Bank to Wallet 0596447662 laundry T`: channel `BANK_TO_WALLET`, destination phone, planned use `laundry`, and no internal classification unless the number is owned.
+- `Wallet to Bank 0549037907 09FG04301`: channel `WALLET_TO_BANK`, source phone `233549037907`, inferred id `09FG04301`.
+- `VISA Card Top Up LZDXAGEE 902125000`: channel `CARD_TOP_UP` with an inferred card token.
+- `CASH DEPOSIT BY ...`: channel `CASH_DEPOSIT`.
+- Negative GCB balances are parsed but marked `SUSPICIOUS`.
 
 ## Generic fallback parser
 
@@ -229,8 +262,9 @@ Current tests cover:
 - Global ignores for failed, security, and promotional messages.
 - MTN merchant payments, `Payment made`, `Payment for`, Y'ello merchant payments, incoming payments, balance parsing, references, and transaction ids.
 - Telecel sends, merchant payments, incoming transfers, bundle purchases, airtime purchases, interest credits, failed-message ignores, and balance-only ignores.
-- GCB account debits/credits, fee-bearing account alerts, prepaid card alerts, internal transfer classification, and subscription candidate classification.
+- GCB account debits/credits, fee-bearing account alerts, prepaid card alerts, transfer fact extraction, suspicious balances, and subscription candidate classification.
 - Generic unknown financial messages and non-financial/receipt-like unknown messages.
+- Ghana phone normalization, owned wallet persistence, parsed event semantics, flow classification, and delayed flow matching.
 
 ## Current limitations
 
@@ -238,6 +272,7 @@ Current tests cover:
 - Provider detection is heuristic after exact sender checks, so unusual sender names rely on body wording.
 - The generic parser extracts only amount and direction. It does not infer counterparty, balance, reference, or exact provider.
 - Failed transaction messages are ignored globally even if they contain balances.
-- Fees and taxes are not stored as separate fields.
+- Fees and taxes are extracted into parsed events where currently supported. They are not yet separate Room columns.
 - MTN compact Y'ello timestamps infer the month from the SMS received timestamp.
 - `Provider.UNKNOWN_BANK` exists in the domain enum but is not currently assigned by detection or provider parsers.
+- Flow metadata is persisted on `TransactionEntity` rows. A future dedicated `TransactionFlowEntity` can reduce duplication if richer linked-event history is needed.

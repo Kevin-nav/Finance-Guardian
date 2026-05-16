@@ -17,6 +17,7 @@ internal fun parsedResult(
     counterpartyPhone: String? = null,
     reference: String? = null,
     balanceAfterMinor: Long? = null,
+    event: ParsedTransactionEvent? = null,
     confidence: Float,
 ): SmsParseResult.Parsed =
     SmsParseResult.Parsed(
@@ -33,6 +34,8 @@ internal fun parsedResult(
             counterpartyPhone = counterpartyPhone?.cleanParsedText()?.takeIf { it.isNotBlank() },
             reference = reference?.cleanReference(),
             balanceAfterMinor = balanceAfterMinor,
+            event = event,
+            plannedUse = event?.plannedUse,
         ),
         confidence = confidence,
     )

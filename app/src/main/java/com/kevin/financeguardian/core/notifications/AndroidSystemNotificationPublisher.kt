@@ -20,13 +20,17 @@ class AndroidSystemNotificationPublisher @Inject constructor(
         notificationId: Int,
         notification: ComposedNotification,
     ) {
-        NotificationManagerCompat.from(context).notify(
-            notificationId,
-            buildNotification(
-                notificationId = notificationId,
-                notification = notification,
-            ),
-        )
+        try {
+            NotificationManagerCompat.from(context).notify(
+                notificationId,
+                buildNotification(
+                    notificationId = notificationId,
+                    notification = notification,
+                ),
+            )
+        } catch (_: SecurityException) {
+            // Notification permission may be denied or revoked at publish time.
+        }
     }
 
     private fun buildNotification(

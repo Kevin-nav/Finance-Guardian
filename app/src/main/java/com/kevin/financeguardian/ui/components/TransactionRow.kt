@@ -37,6 +37,7 @@ fun TransactionRow(
     balanceAfterMinor: Long? = null,
     currency: String = "GHS",
     isUnknownCategory: Boolean = false,
+    balancesVisible: Boolean = true,
     onClick: () -> Unit = {},
 ) {
     val ext = MaterialTheme.extendedColors
@@ -106,6 +107,7 @@ fun TransactionRow(
                     amountMinor = amountMinor,
                     currency = currency,
                     isCredit = isCredit,
+                    visible = balancesVisible,
                 )
                 if (balanceAfterMinor != null) {
                     MoneyText(
@@ -115,6 +117,7 @@ fun TransactionRow(
                             fontFeatureSettings = "tnum",
                         ),
                         overrideColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        visible = balancesVisible,
                     )
                 }
             }

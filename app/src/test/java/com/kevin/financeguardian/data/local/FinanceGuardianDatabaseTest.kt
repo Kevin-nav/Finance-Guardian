@@ -17,6 +17,7 @@ import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.ParseStatus
 import com.kevin.financeguardian.domain.model.Provider
 import com.kevin.financeguardian.domain.model.TransactionDirection
+import com.kevin.financeguardian.domain.parser.BalanceReliability
 import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -292,6 +293,7 @@ class FinanceGuardianDatabaseTest {
             .addMigrations(
                 DatabaseMigrations.MIGRATION_1_2,
                 DatabaseMigrations.MIGRATION_2_3,
+                DatabaseMigrations.MIGRATION_3_4,
             )
             .allowMainThreadQueries()
             .build()
@@ -302,6 +304,9 @@ class FinanceGuardianDatabaseTest {
             assertEquals("legacy-sms-1", transaction?.sourceMessageId)
             assertEquals(null, transaction?.providerTransactionId)
             assertEquals(null, transaction?.dedupeKey)
+            assertEquals(BalanceReliability.UNKNOWN, transaction?.balanceReliability)
+            assertEquals(true, transaction?.includedInSpendingTotals)
+            assertEquals(false, transaction?.includedInIncomeTotals)
         } finally {
             migratedDatabase.close()
             context.deleteDatabase(dbName)

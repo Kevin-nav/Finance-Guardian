@@ -2,6 +2,7 @@ package com.kevin.financeguardian.domain.parser.provider
 
 import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.TransactionDirection
+import com.kevin.financeguardian.domain.parser.MoneyMovementChannel
 import com.kevin.financeguardian.domain.parser.FinanceGuardianSmsParser
 import com.kevin.financeguardian.domain.parser.SmsParseInput
 import com.kevin.financeguardian.domain.parser.SmsParseResult
@@ -25,10 +26,12 @@ class TelecelCashParserTest {
         assertEquals(MoneyMovementType.EXPENSE, parsed.transaction.moneyMovementType)
         assertEquals(1700, parsed.transaction.amountMinor)
         assertEquals("SAMPLE RECIPIENT", parsed.transaction.counterpartyName)
-        assertEquals("0240000000", parsed.transaction.counterpartyPhone)
+        assertEquals("233240000000", parsed.transaction.counterpartyPhone)
         assertEquals("snacks", parsed.transaction.reference)
         assertEquals("000001", parsed.transaction.providerTransactionId)
         assertEquals(7639L, parsed.transaction.balanceAfterMinor)
+        assertEquals(MoneyMovementChannel.WALLET_TO_WALLET, parsed.transaction.event?.channel)
+        assertEquals("snacks", parsed.transaction.event?.plannedUse)
     }
 
     @Test
@@ -54,6 +57,7 @@ class TelecelCashParserTest {
         assertEquals("SAMPLE SENDER", parsed.transaction.counterpartyName)
         assertEquals("233000000000", parsed.transaction.counterpartyPhone)
         assertEquals(100648L, parsed.transaction.balanceAfterMinor)
+        assertEquals(MoneyMovementChannel.WALLET_TO_WALLET, parsed.transaction.event?.channel)
     }
 
     @Test
@@ -89,6 +93,7 @@ class TelecelCashParserTest {
         assertEquals("Airtime", parsed.transaction.counterpartyName)
         assertEquals("233000000000", parsed.transaction.counterpartyPhone)
         assertEquals("Airtime purchase", parsed.transaction.reference)
+        assertEquals(MoneyMovementChannel.AIRTIME_DATA, parsed.transaction.event?.channel)
     }
 
     @Test
