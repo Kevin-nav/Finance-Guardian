@@ -93,6 +93,15 @@ class UserPreferencesRepositoryTest {
     }
 
     @Test
+    fun setThemeModePersists() = runTest {
+        val repository = repository("theme-mode.preferences_pb")
+
+        repository.setThemeMode(AppThemeMode.DARK)
+
+        assertEquals(AppThemeMode.DARK, repository.preferences.first().themeMode)
+    }
+
+    @Test
     fun setBalancesVisiblePersists() = runTest {
         val repository = repository("balances-visible.preferences_pb")
 

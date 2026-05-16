@@ -13,6 +13,7 @@ import com.kevin.financeguardian.data.fixture.SmsFixture
 import com.kevin.financeguardian.data.fixture.SmsFixtureImportResult
 import com.kevin.financeguardian.data.fixture.SmsFixtureImporter
 import com.kevin.financeguardian.data.local.AppDataResetter
+import com.kevin.financeguardian.data.preferences.AppThemeMode
 import com.kevin.financeguardian.data.preferences.UserPreferencesRepository
 import com.kevin.financeguardian.data.sms.SmsIngestionResult
 import com.kevin.financeguardian.domain.model.Provider
@@ -25,6 +26,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -83,6 +85,7 @@ class SettingsViewModelTest {
         viewModel.setDebugParserModeEnabled(true)
         viewModel.setNotificationsEnabled(false)
         viewModel.setProactiveInsightsEnabled(false)
+        viewModel.setThemeMode(AppThemeMode.DARK)
         viewModel.setShowAmountsOnLockScreen(false)
         advanceUntilIdle()
 
@@ -93,6 +96,7 @@ class SettingsViewModelTest {
         assertTrue(state.debugParserModeEnabled)
         assertFalse(state.notificationsEnabled)
         assertFalse(state.proactiveInsightsEnabled)
+        assertEquals(AppThemeMode.DARK, state.themeMode)
         assertFalse(state.showAmountsOnLockScreen)
     }
 

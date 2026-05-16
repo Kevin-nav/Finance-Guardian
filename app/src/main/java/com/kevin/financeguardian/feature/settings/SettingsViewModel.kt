@@ -12,6 +12,7 @@ import com.kevin.financeguardian.core.time.AppClock
 import com.kevin.financeguardian.data.fixture.SmsFixtureImportResult
 import com.kevin.financeguardian.data.fixture.SmsFixtureImporter
 import com.kevin.financeguardian.data.local.AppDataResetter
+import com.kevin.financeguardian.data.preferences.AppThemeMode
 import com.kevin.financeguardian.data.preferences.UserPreferencesRepository
 import com.kevin.financeguardian.data.sms.SmsIngestionResult
 import com.kevin.financeguardian.domain.model.InstrumentProvider
@@ -50,6 +51,7 @@ class SettingsViewModel @Inject constructor(
                 debugParserModeEnabled = preferences.debugParserModeEnabled,
                 notificationsEnabled = preferences.notificationsEnabled,
                 proactiveInsightsEnabled = preferences.proactiveInsightsEnabled,
+                themeMode = preferences.themeMode,
                 balancesVisible = preferences.balancesVisible,
                 showAmountsOnLockScreen = preferences.showAmountsOnLockScreen,
                 ownedWallets = preferences.ownedWallets,
@@ -103,6 +105,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setProactiveInsightsEnabled(enabled: Boolean) {
         viewModelScope.launch { userPreferencesRepository.setProactiveInsightsEnabled(enabled) }
+    }
+
+    fun setThemeMode(mode: AppThemeMode) {
+        viewModelScope.launch { userPreferencesRepository.setThemeMode(mode) }
     }
 
     fun setBalancesVisible(visible: Boolean) {
@@ -239,6 +245,7 @@ data class SettingsUiState(
     val debugParserModeEnabled: Boolean = false,
     val notificationsEnabled: Boolean = true,
     val proactiveInsightsEnabled: Boolean = true,
+    val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val balancesVisible: Boolean = true,
     val showAmountsOnLockScreen: Boolean = true,
     val ownedWallets: List<OwnedInstrument> = emptyList(),

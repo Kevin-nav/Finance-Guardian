@@ -26,6 +26,9 @@ class UserPreferencesRepository @Inject constructor(
             onboardingCompleted = values[ONBOARDING_COMPLETED] ?: false,
             notificationsEnabled = values[NOTIFICATIONS_ENABLED] ?: true,
             proactiveInsightsEnabled = values[PROACTIVE_INSIGHTS_ENABLED] ?: true,
+            themeMode = values[THEME_MODE]?.let { stored ->
+                runCatching { AppThemeMode.valueOf(stored) }.getOrDefault(AppThemeMode.SYSTEM)
+            } ?: AppThemeMode.SYSTEM,
             balancesVisible = values[BALANCES_VISIBLE] ?: true,
             showAmountsOnLockScreen = values[SHOW_AMOUNTS_ON_LOCK_SCREEN] ?: true,
             ownedWallets = decodeWallets(values[OWNED_WALLETS].orEmpty()),
@@ -54,6 +57,10 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun setProactiveInsightsEnabled(enabled: Boolean) {
         dataStore.edit { values -> values[PROACTIVE_INSIGHTS_ENABLED] = enabled }
+    }
+
+    suspend fun setThemeMode(mode: AppThemeMode) {
+        dataStore.edit { values -> values[THEME_MODE] = mode.name }
     }
 
     suspend fun setBalancesVisible(visible: Boolean) {
@@ -133,6 +140,7 @@ class UserPreferencesRepository @Inject constructor(
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         val PROACTIVE_INSIGHTS_ENABLED = booleanPreferencesKey("proactive_insights_enabled")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
         val BALANCES_VISIBLE = booleanPreferencesKey("balances_visible")
         val SHOW_AMOUNTS_ON_LOCK_SCREEN = booleanPreferencesKey("show_amounts_on_lock_screen")
         val OWNED_WALLETS = stringPreferencesKey("owned_wallets")

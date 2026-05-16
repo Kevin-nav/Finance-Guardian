@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Sms
@@ -79,6 +80,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.kevin.financeguardian.data.preferences.AppThemeMode
 import com.kevin.financeguardian.domain.model.InstrumentProvider
 import com.kevin.financeguardian.ui.theme.extendedColors
 import com.kevin.financeguardian.ui.theme.spacing
@@ -96,6 +98,7 @@ fun SettingsRoute(
     val context = LocalContext.current
     var showResetDialog by remember { mutableStateOf(false) }
     var showWalletDialog by remember { mutableStateOf(false) }
+    var showThemeDialog by remember { mutableStateOf(false) }
     var walletLabel by remember { mutableStateOf("") }
     var walletPhone by remember { mutableStateOf("") }
     var walletProvider by remember { mutableStateOf(InstrumentProvider.MTN) }
@@ -258,6 +261,41 @@ fun SettingsRoute(
             },
             dismissButton = {
                 TextButton(onClick = { showWalletDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (showThemeDialog) {
+        AlertDialog(
+            onDismissRequest = { showThemeDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.Palette,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp),
+                )
+            },
+            title = { Text("Theme") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    AppThemeMode.entries.forEach { mode ->
+                        ThemeModeOption(
+                            mode = mode,
+                            selected = uiState.themeMode == mode,
+                            onClick = {
+                                viewModel.setThemeMode(mode)
+                                showThemeDialog = false
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showThemeDialog = false }) {
                     Text("Cancel")
                 }
             },
@@ -431,11 +469,13 @@ fun SettingsRoute(
             SettingsSectionLabel(text = "Appearance")
 
             SettingsGroupCard {
-                SettingsInfoRow(
-                    icon = Icons.Filled.DarkMode,
+                SettingsActionRow(
+                    icon = uiState.themeMode.themeIcon(),
                     iconTint = MaterialTheme.colorScheme.tertiary,
                     title = "Theme",
-                    value = "System Default",
+                    subtitle = uiState.themeMode.displayLabel(),
+                    actionLabel = "Change",
+                    onActionClick = { showThemeDialog = true },
                 )
             }
         }
@@ -940,6 +980,83 @@ private fun InstrumentProvider.displayLabel(): String =
         InstrumentProvider.GCB -> "GCB"
         InstrumentProvider.OTHER -> "Other"
         InstrumentProvider.UNKNOWN -> "Unknown"
+    }
+
+@Composable
+private fun ThemeModeOption(
+    mode: AppThemeMode,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val color = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .background(
+                if (selected) {
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+                } else {
+                    Color.Transparent
+                },
+            )
+            .padding(horizontal = MaterialTheme.spacing.sm, vertical = MaterialTheme.spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
+    ) {
+        SettingsIconCircle(
+            icon = mode.themeIcon(),
+            tint = color,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = mode.displayLabel(),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = mode.description(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (selected) {
+            Icon(
+                imageVector = Icons.Filled.CheckCircle,
+                contentDescription = "Selected",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+private fun AppThemeMode.displayLabel(): String =
+    when (this) {
+        AppThemeMode.SYSTEM -> "System default"
+        AppThemeMode.LIGHT -> "Light"
+        AppThemeMode.DARK -> "Dark"
+    }
+
+private fun AppThemeMode.description(): String =
+    when (this) {
+        AppThemeMode.SYSTEM -> "Follow your device setting"
+        AppThemeMode.LIGHT -> "Always use the light theme"
+        AppThemeMode.DARK -> "Always use the dark theme"
+    }
+
+private fun AppThemeMode.themeIcon(): ImageVector =
+    when (this) {
+        AppThemeMode.SYSTEM -> Icons.Filled.Palette
+        AppThemeMode.LIGHT -> Icons.Filled.WbSunny
+        AppThemeMode.DARK -> Icons.Filled.DarkMode
     }
 
 private fun String.filterPhoneInput(): String =
