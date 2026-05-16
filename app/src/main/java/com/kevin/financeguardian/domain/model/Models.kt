@@ -1,6 +1,7 @@
 package com.kevin.financeguardian.domain.model
 
 import com.kevin.financeguardian.domain.parser.BalanceReliability
+import com.kevin.financeguardian.domain.parser.MoneyMovementChannel
 import com.kevin.financeguardian.domain.parser.TransactionFlowStatus
 import com.kevin.financeguardian.domain.parser.TransactionFlowType
 import java.time.Instant
@@ -28,6 +29,15 @@ data class Transaction(
     val flowType: TransactionFlowType? = null,
     val flowStatus: TransactionFlowStatus? = null,
     val plannedUse: String? = null,
+    val eventChannel: MoneyMovementChannel? = null,
+    val eventSourceInstrumentType: InstrumentType? = null,
+    val eventSourceInstrumentProvider: InstrumentProvider? = null,
+    val eventSourceInstrumentIdentifier: String? = null,
+    val eventDestinationInstrumentType: InstrumentType? = null,
+    val eventDestinationInstrumentProvider: InstrumentProvider? = null,
+    val eventDestinationInstrumentIdentifier: String? = null,
+    val eventProviderReference: String? = null,
+    val eventInferredIdentifiers: String? = null,
     val includedInSpendingTotals: Boolean = moneyMovementType == MoneyMovementType.EXPENSE ||
         moneyMovementType == MoneyMovementType.SUBSCRIPTION_CANDIDATE ||
         (moneyMovementType == MoneyMovementType.UNKNOWN && direction == TransactionDirection.DEBIT),

@@ -45,9 +45,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kevin.financeguardian.domain.model.CategoryType
 import com.kevin.financeguardian.ui.components.CategoryIcon
 import com.kevin.financeguardian.ui.components.EmptyState
+import com.kevin.financeguardian.ui.components.FlowDetailSheet
 import com.kevin.financeguardian.ui.components.MoneyText
 import com.kevin.financeguardian.ui.components.SectionHeader
-import com.kevin.financeguardian.ui.components.TransactionDetailSheet
 import com.kevin.financeguardian.ui.components.TransactionRow
 import com.kevin.financeguardian.ui.theme.MoneyTypography
 import com.kevin.financeguardian.ui.theme.extendedColors
@@ -64,13 +64,19 @@ fun CategoryDetailRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // Transaction detail sheet
-    uiState.selectedTransaction?.let { transaction ->
-        TransactionDetailSheet(
-            transaction = transaction,
+    uiState.selectedFlow?.let { flow ->
+        FlowDetailSheet(
+            flow = flow,
+            balancesVisible = true,
             categoryOptions = uiState.categoryOptions.map { it.name },
             onDismiss = viewModel::dismissTransaction,
-            onSave = { selectedCategory, selectedType ->
-                viewModel.saveCorrection(selectedCategory, selectedType)
+            onSave = { selectedCategory, selectedType, plannedUse ->
+                viewModel.saveCorrection(
+                    selectedCategory = selectedCategory,
+                    selectedType = selectedType,
+                    plannedUse = plannedUse,
+                    updatePlannedUse = true,
+                )
             },
         )
     }

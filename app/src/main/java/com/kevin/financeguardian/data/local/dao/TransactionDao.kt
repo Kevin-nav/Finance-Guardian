@@ -85,6 +85,7 @@ interface TransactionDao {
             moneyMovementType = :type,
             flowType = :flowType,
             flowStatus = :flowStatus,
+            plannedUse = :plannedUse,
             includedInSpendingTotals = :includedInSpendingTotals,
             includedInIncomeTotals = :includedInIncomeTotals,
             updatedAt = :updatedAt
@@ -97,10 +98,26 @@ interface TransactionDao {
         type: MoneyMovementType,
         flowType: TransactionFlowType?,
         flowStatus: TransactionFlowStatus?,
+        plannedUse: String?,
         includedInSpendingTotals: Boolean,
         includedInIncomeTotals: Boolean,
         updatedAt: Instant,
     )
+
+    @Query(
+        """
+        UPDATE transactions
+        SET flowId = NULL,
+            flowStatus = :flowStatus,
+            updatedAt = :updatedAt
+        WHERE flowId = :flowId OR id = :flowId
+        """,
+    )
+    suspend fun unlinkFlow(
+        flowId: String,
+        flowStatus: TransactionFlowStatus,
+        updatedAt: Instant,
+    ): Int
 
     @Query("DELETE FROM transactions WHERE id IN (:ids)")
     suspend fun deleteByIds(ids: List<String>)

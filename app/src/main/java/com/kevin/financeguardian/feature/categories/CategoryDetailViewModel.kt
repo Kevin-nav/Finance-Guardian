@@ -15,7 +15,11 @@ import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.Provider
 import com.kevin.financeguardian.domain.model.Transaction
 import com.kevin.financeguardian.domain.model.effectiveIsCredit
-import com.kevin.financeguardian.ui.components.TransactionDetail
+import com.kevin.financeguardian.ui.components.AccountingImpactUi
+import com.kevin.financeguardian.ui.components.EvidenceEventUi
+import com.kevin.financeguardian.ui.components.FlowStatusUi
+import com.kevin.financeguardian.ui.components.FlowTypeUi
+import com.kevin.financeguardian.ui.components.TransactionFlowDetail
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.time.ZoneId
@@ -71,7 +75,7 @@ class CategoryDetailViewModel @Inject constructor(
             totalAmountMinor = totalAmountMinor,
             transactionCount = items.size,
             groups = groups,
-            selectedTransaction = selectedItem?.toDetail(),
+            selectedFlow = selectedItem?.toFlowDetail(),
             categoryOptions = categoryOptions,
             canEdit = !isDefault,
             isLoading = false,
@@ -93,6 +97,8 @@ class CategoryDetailViewModel @Inject constructor(
     fun saveCorrection(
         selectedCategory: String,
         selectedType: String,
+        plannedUse: String? = null,
+        updatePlannedUse: Boolean = false,
     ) {
         val transactionId = selectedTransactionId.value ?: return
         val catId = uiState.value.categoryOptions
@@ -105,6 +111,8 @@ class CategoryDetailViewModel @Inject constructor(
                 categoryId = catId,
                 moneyMovementType = movementType,
                 saveMerchantDefault = true,
+                plannedUse = plannedUse,
+                updatePlannedUse = updatePlannedUse,
             )
             selectedTransactionId.value = null
         }
@@ -148,20 +156,43 @@ class CategoryDetailViewModel @Inject constructor(
         }
     }
 
-    private fun CategoryDetailTransactionItem.toDetail(): TransactionDetail =
-        TransactionDetail(
-            id = id,
-            merchantName = merchantName,
-            categoryName = categoryName,
+    private fun CategoryDetailTransactionItem.toFlowDetail(): TransactionFlowDetail {
+        val flowType = movementType.toFlowTypeUi()
+        return TransactionFlowDetail(
+            flowId = id,
+            title = merchantName,
+            flowType = flowType,
+            flowStatus = FlowStatusUi.COMPLETE,
+            accountingImpact = accountingImpactFor(flowType),
             amountMinor = amountMinor,
-            isCredit = isCredit,
-            timestamp = timestamp,
+            currency = currency,
+            categoryName = categoryName,
+            categoryId = categoryId,
+            plannedUse = null,
+            sourceInstrument = null,
+            destinationInstrument = null,
+            events = listOf(
+                EvidenceEventUi(
+                    provider = provider,
+                    direction = if (isCredit) "Credit" else "Debit",
+                    time = timestamp,
+                    amountMinor = amountMinor,
+                    currency = currency,
+                    channel = flowType.label,
+                    sourceIdentifier = null,
+                    destinationIdentifier = null,
+                    reference = reference,
+                ),
+            ),
+            matchingState = null,
             dateGroup = dateGroup,
+            timestamp = timestamp,
+            flowEventCount = 1,
             provider = provider,
             reference = reference,
             balanceAfterMinor = balanceAfterMinor,
-            currency = currency,
         )
+    }
 
     private fun Instant.formatTime(): String =
         DateTimeFormatter.ofPattern("HH:mm").format(atZone(ZoneId.systemDefault()))
@@ -198,10 +229,47 @@ class CategoryDetailViewModel @Inject constructor(
         when (this) {
             "Expense" -> MoneyMovementType.EXPENSE
             "Income" -> MoneyMovementType.INCOME
-            "Internal Transfer" -> MoneyMovementType.INTERNAL_TRANSFER
+            "Internal transfer", "Internal Transfer" -> MoneyMovementType.INTERNAL_TRANSFER
+            "Cash deposit" -> MoneyMovementType.INCOME
+            "Card spend" -> MoneyMovementType.EXPENSE
             "Savings" -> MoneyMovementType.SAVINGS_CONTRIBUTION
-            "Ignore" -> MoneyMovementType.UNKNOWN
+            "Ignore", "Unknown" -> MoneyMovementType.UNKNOWN
             else -> null
+        }
+
+    private fun MoneyMovementType.toFlowTypeUi(): FlowTypeUi =
+        when (this) {
+            MoneyMovementType.EXPENSE,
+            MoneyMovementType.SUBSCRIPTION_CANDIDATE,
+            -> FlowTypeUi.EXPENSE
+            MoneyMovementType.INCOME -> FlowTypeUi.INCOME
+            MoneyMovementType.INTERNAL_TRANSFER -> FlowTypeUi.INTERNAL_TRANSFER
+            MoneyMovementType.SAVINGS_CONTRIBUTION -> FlowTypeUi.INCOME
+            MoneyMovementType.UNKNOWN -> FlowTypeUi.UNKNOWN
+        }
+
+    private fun accountingImpactFor(type: FlowTypeUi): AccountingImpactUi =
+        when (type) {
+            FlowTypeUi.INTERNAL_TRANSFER -> AccountingImpactUi(
+                label = "Excluded from spending and income",
+                description = "This transfer moves money between your own accounts",
+                isExcluded = true,
+            )
+            FlowTypeUi.EXPENSE, FlowTypeUi.CARD_SPEND -> AccountingImpactUi(
+                label = "Counts as spending",
+                description = "This flow is included in your expense totals",
+                isExcluded = false,
+            )
+            FlowTypeUi.INCOME, FlowTypeUi.CASH_DEPOSIT -> AccountingImpactUi(
+                label = "Counts as income",
+                description = "This flow is included in your income totals",
+                isExcluded = false,
+            )
+            else -> AccountingImpactUi(
+                label = "Uncategorized",
+                description = "Classify this flow to include it in your reports",
+                isExcluded = false,
+            )
         }
 
     private companion object {
@@ -218,7 +286,7 @@ data class CategoryDetailUiState(
     val totalAmountMinor: Long = 0L,
     val transactionCount: Int = 0,
     val groups: List<CategoryDetailTransactionGroup> = emptyList(),
-    val selectedTransaction: TransactionDetail? = null,
+    val selectedFlow: TransactionFlowDetail? = null,
     val categoryOptions: List<CategoryDetailCategoryOption> = emptyList(),
     val canEdit: Boolean = false,
     val isLoading: Boolean = true,

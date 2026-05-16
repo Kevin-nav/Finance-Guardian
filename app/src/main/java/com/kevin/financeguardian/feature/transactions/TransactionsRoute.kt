@@ -32,7 +32,7 @@ import com.kevin.financeguardian.ui.components.EmptyState
 import com.kevin.financeguardian.ui.components.FilterChipRow
 import com.kevin.financeguardian.ui.components.QuickActionRow
 import com.kevin.financeguardian.ui.components.SectionHeader
-import com.kevin.financeguardian.ui.components.TransactionDetailSheet
+import com.kevin.financeguardian.ui.components.FlowDetailSheet
 import com.kevin.financeguardian.ui.components.TransactionRow
 import com.kevin.financeguardian.ui.theme.spacing
 import java.util.Calendar
@@ -76,14 +76,21 @@ fun TransactionsRoute(
         viewModel.refreshPermissions()
     }
 
-    uiState.selectedTransaction?.let { transaction ->
-        TransactionDetailSheet(
-            transaction = transaction,
+    uiState.selectedFlow?.let { flow ->
+        FlowDetailSheet(
+            flow = flow,
+            balancesVisible = uiState.balancesVisible,
             categoryOptions = uiState.categoryOptions.map { it.name },
             onDismiss = viewModel::dismissTransaction,
-            onSave = { selectedCategory, selectedType ->
-                viewModel.saveCorrection(selectedCategory, selectedType)
+            onSave = { selectedCategory, selectedType, plannedUse ->
+                viewModel.saveCorrection(
+                    selectedCategory = selectedCategory,
+                    selectedType = selectedType,
+                    plannedUse = plannedUse,
+                    updatePlannedUse = true,
+                )
             },
+            onUnlink = viewModel::unlinkFlow,
         )
     }
 
@@ -204,6 +211,10 @@ fun TransactionsRoute(
                     currency = transaction.currency,
                     isUnknownCategory = transaction.isUnknownCategory,
                     balancesVisible = uiState.balancesVisible,
+                    isInternalTransfer = transaction.isInternalTransfer,
+                    plannedUse = transaction.plannedUse,
+                    flowStatus = transaction.flowStatus,
+                    flowType = transaction.flowType,
                     onClick = { viewModel.selectTransaction(transaction.id) },
                     modifier = Modifier.animateItem(),
                 )

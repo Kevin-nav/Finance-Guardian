@@ -24,6 +24,13 @@ data class ExtendedColorScheme(
     val unknown: Color,
     val balanceCardBackground: Color,
     val onBalanceCard: Color,
+    val matchedBadge: Color,
+    val matchedBadgeContainer: Color,
+    val pendingBadge: Color,
+    val pendingBadgeContainer: Color,
+    val reviewBadge: Color,
+    val reviewBadgeContainer: Color,
+    val neutralAmount: Color,
 )
 
 val LightExtendedColors = ExtendedColorScheme(
@@ -40,6 +47,13 @@ val LightExtendedColors = ExtendedColorScheme(
     unknown = UnknownLight,
     balanceCardBackground = BalanceCardBackgroundLight,
     onBalanceCard = OnBalanceCardLight,
+    matchedBadge = MatchedBadgeLight,
+    matchedBadgeContainer = MatchedBadgeContainerLight,
+    pendingBadge = PendingBadgeLight,
+    pendingBadgeContainer = PendingBadgeContainerLight,
+    reviewBadge = ReviewBadgeLight,
+    reviewBadgeContainer = ReviewBadgeContainerLight,
+    neutralAmount = NeutralAmountLight,
 )
 
 val DarkExtendedColors = ExtendedColorScheme(
@@ -56,6 +70,13 @@ val DarkExtendedColors = ExtendedColorScheme(
     unknown = UnknownDark,
     balanceCardBackground = BalanceCardBackgroundDark,
     onBalanceCard = OnBalanceCardDark,
+    matchedBadge = MatchedBadgeDark,
+    matchedBadgeContainer = MatchedBadgeContainerDark,
+    pendingBadge = PendingBadgeDark,
+    pendingBadgeContainer = PendingBadgeContainerDark,
+    reviewBadge = ReviewBadgeDark,
+    reviewBadgeContainer = ReviewBadgeContainerDark,
+    neutralAmount = NeutralAmountDark,
 )
 
 val LocalExtendedColors = staticCompositionLocalOf { LightExtendedColors }

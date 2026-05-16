@@ -8,5 +8,9 @@ interface TransactionCorrectionApplier {
         categoryId: String?,
         moneyMovementType: MoneyMovementType?,
         saveMerchantDefault: Boolean,
+        plannedUse: String? = null,
+        updatePlannedUse: Boolean = false,
     ): TransactionCorrectionResult
+
+    suspend fun unlinkFlow(flowId: String): TransactionCorrectionResult
 }

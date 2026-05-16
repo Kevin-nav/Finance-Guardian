@@ -24,6 +24,8 @@ class TransactionCorrectionService @Inject constructor(
         categoryId: String?,
         moneyMovementType: MoneyMovementType?,
         saveMerchantDefault: Boolean,
+        plannedUse: String?,
+        updatePlannedUse: Boolean,
     ): TransactionCorrectionResult {
         val transaction = transactionDao.getById(transactionId) ?: return TransactionCorrectionResult.NotFound
         val now = clock.now()
@@ -38,6 +40,7 @@ class TransactionCorrectionService @Inject constructor(
                 type = moneyMovementType,
                 flowType = moneyMovementType.toFlowType(),
                 flowStatus = TransactionFlowStatus.COMPLETE,
+                plannedUse = if (updatePlannedUse) plannedUse else transaction.plannedUse,
                 includedInSpendingTotals = includedInSpendingTotals,
                 includedInIncomeTotals = includedInIncomeTotals,
                 updatedAt = now,
@@ -87,6 +90,19 @@ class TransactionCorrectionService @Inject constructor(
         )
 
         return TransactionCorrectionResult.Applied
+    }
+
+    override suspend fun unlinkFlow(flowId: String): TransactionCorrectionResult {
+        val updatedRows = transactionDao.unlinkFlow(
+            flowId = flowId,
+            flowStatus = TransactionFlowStatus.NEEDS_REVIEW,
+            updatedAt = clock.now(),
+        )
+        return if (updatedRows == 0) {
+            TransactionCorrectionResult.NotFound
+        } else {
+            TransactionCorrectionResult.Applied
+        }
     }
 
     private fun MoneyMovementType.toFlowType(): TransactionFlowType =

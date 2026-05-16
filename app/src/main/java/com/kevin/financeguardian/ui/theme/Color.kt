@@ -120,3 +120,27 @@ val BalanceCardBackgroundLight = Color(0xFF006590)
 val OnBalanceCardLight = Color(0xFFFFFFFF)
 val BalanceCardBackgroundDark = Color(0xFF004C6E)
 val OnBalanceCardDark = Color(0xFFE0F0FF)
+
+// ── Flow Status Badges ─────────────────────────────────────────────────────
+
+// Matched (green-tinted)
+val MatchedBadgeLight = Color(0xFF1B7D46)
+val MatchedBadgeContainerLight = Color(0xFFD5F5E3)
+val MatchedBadgeDark = Color(0xFF6CD99B)
+val MatchedBadgeContainerDark = Color(0xFF0D3B1E)
+
+// Pending (amber-tinted)
+val PendingBadgeLight = Color(0xFF7D5800)
+val PendingBadgeContainerLight = Color(0xFFFFF3D6)
+val PendingBadgeDark = Color(0xFFFFBF47)
+val PendingBadgeContainerDark = Color(0xFF3D2C00)
+
+// Needs Review (orange-red)
+val ReviewBadgeLight = Color(0xFFC35415)
+val ReviewBadgeContainerLight = Color(0xFFFFE4D6)
+val ReviewBadgeDark = Color(0xFFFFAB80)
+val ReviewBadgeContainerDark = Color(0xFF4A1F00)
+
+// Neutral (for internal transfer amounts)
+val NeutralAmountLight = Color(0xFF41484D)
+val NeutralAmountDark = Color(0xFFC1C7CE)

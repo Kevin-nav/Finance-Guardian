@@ -13,14 +13,18 @@ import com.kevin.financeguardian.data.transaction.TransactionCorrectionApplier
 import com.kevin.financeguardian.data.transaction.TransactionCorrectionResult
 import com.kevin.financeguardian.domain.model.CategoryType
 import com.kevin.financeguardian.domain.model.DefaultCategories
+import com.kevin.financeguardian.domain.model.InstrumentProvider
+import com.kevin.financeguardian.domain.model.InstrumentType
 import com.kevin.financeguardian.domain.model.MoneyMovementType
 import com.kevin.financeguardian.domain.model.Provider
 import com.kevin.financeguardian.domain.model.Transaction
 import com.kevin.financeguardian.domain.model.TransactionDirection
 import com.kevin.financeguardian.domain.parser.BalanceReliability
+import com.kevin.financeguardian.domain.parser.MoneyMovementChannel
 import com.kevin.financeguardian.domain.parser.TransactionFlowStatus
 import com.kevin.financeguardian.domain.parser.TransactionFlowType
 import com.kevin.financeguardian.testing.MainDispatcherRule
+import com.kevin.financeguardian.ui.components.FlowStatusUi
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -282,6 +286,66 @@ class TransactionsViewModelTest {
     }
 
     @Test
+    fun flowDetailUsesUnderlyingTransactionsForInstrumentsAndEvidence() = runTest {
+        seedCategories()
+        repository.replace(
+            listOf(
+                transaction(
+                    id = "telecel-side",
+                    provider = Provider.TELECEL_CASH,
+                    direction = TransactionDirection.DEBIT,
+                    movement = MoneyMovementType.INTERNAL_TRANSFER,
+                    categoryId = "transfers",
+                    flowId = "telecel-side",
+                    flowType = TransactionFlowType.INTERNAL_TRANSFER,
+                    flowStatus = TransactionFlowStatus.COMPLETE,
+                    plannedUse = "Data",
+                    eventChannel = MoneyMovementChannel.WALLET_TO_WALLET,
+                    eventSourceInstrumentType = InstrumentType.WALLET,
+                    eventSourceInstrumentProvider = InstrumentProvider.TELECEL,
+                    eventSourceInstrumentIdentifier = "233505600861",
+                    eventDestinationInstrumentType = InstrumentType.WALLET,
+                    eventDestinationInstrumentProvider = InstrumentProvider.MTN,
+                    eventDestinationInstrumentIdentifier = "233549037907",
+                    eventProviderReference = "Data",
+                    occurredAt = now.minusSeconds(60),
+                ),
+                transaction(
+                    id = "mtn-side",
+                    provider = Provider.MTN_MOMO,
+                    direction = TransactionDirection.CREDIT,
+                    movement = MoneyMovementType.INTERNAL_TRANSFER,
+                    categoryId = "transfers",
+                    flowId = "telecel-side",
+                    flowType = TransactionFlowType.INTERNAL_TRANSFER,
+                    flowStatus = TransactionFlowStatus.COMPLETE,
+                    eventChannel = MoneyMovementChannel.WALLET_TO_WALLET,
+                    eventSourceInstrumentType = InstrumentType.WALLET,
+                    eventSourceInstrumentProvider = InstrumentProvider.TELECEL,
+                    eventSourceInstrumentIdentifier = "233505600861",
+                    eventDestinationInstrumentType = InstrumentType.WALLET,
+                    eventDestinationInstrumentProvider = InstrumentProvider.MTN,
+                    eventDestinationInstrumentIdentifier = "233549037907",
+                    eventProviderReference = "Data",
+                    occurredAt = now,
+                ),
+            ),
+        )
+        val viewModel = viewModel()
+
+        viewModel.selectTransaction("telecel-side")
+        val detail = viewModel.uiState.value.selectedFlow
+
+        assertEquals(FlowStatusUi.MATCHED, detail?.flowStatus)
+        assertEquals("Telecel Cash", detail?.sourceInstrument?.provider)
+        assertEquals("050 *** 0861", detail?.sourceInstrument?.maskedIdentifier)
+        assertEquals("MTN MoMo", detail?.destinationInstrument?.provider)
+        assertEquals("054 *** 7907", detail?.destinationInstrument?.maskedIdentifier)
+        assertEquals(2, detail?.events?.size)
+        assertEquals("Wallet to wallet", detail?.events?.first()?.channel)
+    }
+
+    @Test
     fun saveCorrectionCallsBackendWithSelectedCategoryAndMovementType() = runTest {
         seedCategories()
         repository.replace(
@@ -290,7 +354,7 @@ class TransactionsViewModelTest {
         val viewModel = viewModel()
 
         viewModel.selectTransaction("expense-1")
-        viewModel.saveCorrection("Transfers", "Internal Transfer")
+        viewModel.saveCorrection("Transfers", "Internal Transfer", plannedUse = "Food", updatePlannedUse = true)
         advanceUntilIdle()
 
         assertEquals(
@@ -299,6 +363,8 @@ class TransactionsViewModelTest {
                 categoryId = "transfers",
                 moneyMovementType = MoneyMovementType.INTERNAL_TRANSFER,
                 saveMerchantDefault = true,
+                plannedUse = "Food",
+                updatePlannedUse = true,
             ),
             correctionApplier.lastCall,
         )
@@ -311,7 +377,30 @@ class TransactionsViewModelTest {
             ),
             notificationDispatcher.events,
         )
-        assertEquals(null, viewModel.uiState.value.selectedTransaction)
+        assertEquals(null, viewModel.uiState.value.selectedFlow)
+    }
+
+    @Test
+    fun unlinkFlowCallsBackendWithSelectedFlowId() = runTest {
+        seedCategories()
+        repository.replace(
+            listOf(
+                transaction(
+                    id = "flow-root",
+                    categoryId = "transfers",
+                    flowId = "flow-root",
+                    movement = MoneyMovementType.INTERNAL_TRANSFER,
+                ),
+            ),
+        )
+        val viewModel = viewModel()
+
+        viewModel.selectTransaction("flow-root")
+        viewModel.unlinkFlow()
+        advanceUntilIdle()
+
+        assertEquals("flow-root", correctionApplier.lastUnlinkFlowId)
+        assertEquals(null, viewModel.uiState.value.selectedFlow)
     }
 
     private fun TransactionsViewModel.visibleTransactionIds(): List<String> =
@@ -354,6 +443,15 @@ class TransactionsViewModelTest {
         flowId: String? = null,
         flowType: TransactionFlowType? = null,
         flowStatus: TransactionFlowStatus? = null,
+        plannedUse: String? = null,
+        eventChannel: MoneyMovementChannel? = null,
+        eventSourceInstrumentType: InstrumentType? = null,
+        eventSourceInstrumentProvider: InstrumentProvider? = null,
+        eventSourceInstrumentIdentifier: String? = null,
+        eventDestinationInstrumentType: InstrumentType? = null,
+        eventDestinationInstrumentProvider: InstrumentProvider? = null,
+        eventDestinationInstrumentIdentifier: String? = null,
+        eventProviderReference: String? = null,
         includedInSpendingTotals: Boolean = movement == MoneyMovementType.EXPENSE ||
             movement == MoneyMovementType.SUBSCRIPTION_CANDIDATE ||
             (movement == MoneyMovementType.UNKNOWN && direction == TransactionDirection.DEBIT),
@@ -381,6 +479,15 @@ class TransactionsViewModelTest {
             flowId = flowId,
             flowType = flowType,
             flowStatus = flowStatus,
+            plannedUse = plannedUse,
+            eventChannel = eventChannel,
+            eventSourceInstrumentType = eventSourceInstrumentType,
+            eventSourceInstrumentProvider = eventSourceInstrumentProvider,
+            eventSourceInstrumentIdentifier = eventSourceInstrumentIdentifier,
+            eventDestinationInstrumentType = eventDestinationInstrumentType,
+            eventDestinationInstrumentProvider = eventDestinationInstrumentProvider,
+            eventDestinationInstrumentIdentifier = eventDestinationInstrumentIdentifier,
+            eventProviderReference = eventProviderReference,
             includedInSpendingTotals = includedInSpendingTotals,
             includedInIncomeTotals = includedInIncomeTotals,
             confidence = 0.9f,
@@ -462,19 +569,29 @@ class TransactionsViewModelTest {
 
     private class FakeTransactionCorrectionApplier : TransactionCorrectionApplier {
         var lastCall: CorrectionCall? = null
+        var lastUnlinkFlowId: String? = null
 
         override suspend fun applyCorrection(
             transactionId: String,
             categoryId: String?,
             moneyMovementType: MoneyMovementType?,
             saveMerchantDefault: Boolean,
+            plannedUse: String?,
+            updatePlannedUse: Boolean,
         ): TransactionCorrectionResult {
             lastCall = CorrectionCall(
                 transactionId = transactionId,
                 categoryId = categoryId,
                 moneyMovementType = moneyMovementType,
                 saveMerchantDefault = saveMerchantDefault,
+                plannedUse = plannedUse,
+                updatePlannedUse = updatePlannedUse,
             )
+            return TransactionCorrectionResult.Applied
+        }
+
+        override suspend fun unlinkFlow(flowId: String): TransactionCorrectionResult {
+            lastUnlinkFlowId = flowId
             return TransactionCorrectionResult.Applied
         }
     }
@@ -484,6 +601,8 @@ class TransactionsViewModelTest {
         val categoryId: String?,
         val moneyMovementType: MoneyMovementType?,
         val saveMerchantDefault: Boolean,
+        val plannedUse: String? = null,
+        val updatePlannedUse: Boolean = false,
     )
 
     private class FakePermissionStatusChecker : PermissionStatusChecker {

@@ -11,16 +11,29 @@ import com.kevin.financeguardian.data.local.mapper.toDomain
 import com.kevin.financeguardian.data.preferences.UserPreferencesRepository
 import com.kevin.financeguardian.data.repository.TransactionRepository
 import com.kevin.financeguardian.data.transaction.TransactionCorrectionApplier
-import com.kevin.financeguardian.domain.parser.BalanceReliability
 import com.kevin.financeguardian.domain.model.Category
+import com.kevin.financeguardian.domain.model.InstrumentProvider
+import com.kevin.financeguardian.domain.model.InstrumentType
 import com.kevin.financeguardian.domain.model.MoneyMovementType
+import com.kevin.financeguardian.domain.model.OwnedInstrument
 import com.kevin.financeguardian.domain.model.Provider
 import com.kevin.financeguardian.domain.model.Transaction
+import com.kevin.financeguardian.domain.model.TransactionDirection
 import com.kevin.financeguardian.domain.model.effectiveIsCredit
-import com.kevin.financeguardian.ui.components.TransactionDetail
+import com.kevin.financeguardian.domain.parser.BalanceReliability
+import com.kevin.financeguardian.domain.parser.MoneyMovementChannel
+import com.kevin.financeguardian.domain.parser.TransactionFlowStatus
+import com.kevin.financeguardian.domain.parser.TransactionFlowType
+import com.kevin.financeguardian.ui.components.AccountingImpactUi
+import com.kevin.financeguardian.ui.components.EvidenceEventUi
+import com.kevin.financeguardian.ui.components.FlowStatusUi
+import com.kevin.financeguardian.ui.components.FlowTypeUi
+import com.kevin.financeguardian.ui.components.InstrumentUi
+import com.kevin.financeguardian.ui.components.MatchingStateUi
+import com.kevin.financeguardian.ui.components.OwnershipUi
+import com.kevin.financeguardian.ui.components.TransactionFlowDetail
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -50,7 +63,7 @@ class TransactionsViewModel @Inject constructor(
         categoryDao.observeAll(),
         userPreferencesRepository?.preferences ?: flowOf(com.kevin.financeguardian.data.preferences.UserPreferences()),
     ) { transactions, categoryEntities, preferences ->
-        TransactionUiInputs(transactions, categoryEntities, preferences.balancesVisible)
+        TransactionUiInputs(transactions, categoryEntities, preferences.balancesVisible, preferences.ownedWallets)
     }
 
     val uiState: StateFlow<TransactionsUiState> = combine(
@@ -67,6 +80,7 @@ class TransactionsViewModel @Inject constructor(
             selectedTransactionId = selectedId,
             receiveSmsGranted = permissionStatusChecker.currentStatuses().receiveSmsGranted,
             balancesVisible = inputs.balancesVisible,
+            ownedWallets = inputs.ownedWallets,
             now = clock.now(),
         )
     }.stateIn(
@@ -97,9 +111,19 @@ class TransactionsViewModel @Inject constructor(
         }
     }
 
+    fun unlinkFlow() {
+        val flowId = selectedTransactionId.value ?: return
+        viewModelScope.launch {
+            transactionCorrectionApplier.unlinkFlow(flowId)
+            selectedTransactionId.value = null
+        }
+    }
+
     fun saveCorrection(
         selectedCategory: String,
         selectedType: String,
+        plannedUse: String? = null,
+        updatePlannedUse: Boolean = false,
     ) {
         val transactionId = selectedTransactionId.value ?: return
         val categoryId = uiState.value.categoryOptions
@@ -112,6 +136,8 @@ class TransactionsViewModel @Inject constructor(
                 categoryId = categoryId,
                 moneyMovementType = movementType,
                 saveMerchantDefault = true,
+                plannedUse = plannedUse,
+                updatePlannedUse = updatePlannedUse,
             )
             notificationDispatcher.dispatch(
                 NotificationEvent.CorrectionSaved(
@@ -130,16 +156,21 @@ class TransactionsViewModel @Inject constructor(
         selectedTransactionId: String?,
         receiveSmsGranted: Boolean,
         balancesVisible: Boolean,
+        ownedWallets: List<OwnedInstrument>,
         now: Instant,
     ): TransactionsUiState {
         val categoryById = categories.associateBy { it.id }
         val categoryOptions = categories.map { TransactionCategoryOption(it.id, it.name) }
-        val collapsedTransactions = transactions.collapseInternalFlows()
-        val items = collapsedTransactions.map { transaction ->
-            transaction.toListItem(categoryById, now)
+        val flowGroups = transactions.toTransactionFlowGroups()
+        val items = flowGroups.map { flowGroup ->
+            flowGroup.primary.toListItem(
+                categoryById = categoryById,
+                now = now,
+                flowEventCount = flowGroup.transactions.size,
+            )
         }
         val filteredItems = items.filter { it.matches(selectedFilter) }
-        val selectedItem = items.firstOrNull { it.id == selectedTransactionId }
+        val selectedFlowGroup = flowGroups.firstOrNull { it.id == selectedTransactionId }
         val providerBalances = transactions.latestProviderBalances()
 
         return TransactionsUiState(
@@ -147,7 +178,11 @@ class TransactionsViewModel @Inject constructor(
             selectedFilter = selectedFilter,
             groups = filteredItems.toGroups(),
             categoryOptions = categoryOptions,
-            selectedTransaction = selectedItem?.toDetail(),
+            selectedFlow = selectedFlowGroup?.toFlowDetail(
+                categoryById = categoryById,
+                ownedWallets = ownedWallets,
+                now = now,
+            ),
             totalBalanceMinor = providerBalances.sumOf { it.balanceMinor },
             providerBalances = providerBalances,
             incomeMinor = transactions
@@ -186,17 +221,24 @@ class TransactionsViewModel @Inject constructor(
                     .thenBy { it.provider },
             )
 
-    private fun List<Transaction>.collapseInternalFlows(): List<Transaction> =
+    private fun List<Transaction>.toTransactionFlowGroups(): List<TransactionFlowGroup> =
         groupBy { it.flowId ?: it.id }
             .values
             .map { flowTransactions ->
-                if (flowTransactions.size == 1) {
+                val sortedTransactions = flowTransactions.sortedBy { it.occurredAt }
+                val flowId = flowTransactions.firstNotNullOfOrNull { it.flowId } ?: flowTransactions.first().id
+                val primary = if (flowTransactions.size == 1) {
                     flowTransactions.first()
                 } else {
                     flowTransactions.toCollapsedInternalFlow()
                 }
+                TransactionFlowGroup(
+                    id = flowId,
+                    primary = primary,
+                    transactions = sortedTransactions,
+                )
             }
-            .sortedByDescending { it.occurredAt }
+            .sortedByDescending { it.primary.occurredAt }
 
     private fun List<Transaction>.toCollapsedInternalFlow(): Transaction {
         val flowId = firstNotNullOfOrNull { it.flowId }
@@ -235,11 +277,16 @@ class TransactionsViewModel @Inject constructor(
     private fun Transaction.toListItem(
         categoryById: Map<String, Category>,
         now: Instant,
+        flowEventCount: Int = 1,
     ): TransactionListItem {
         val categoryName = categoryId
             ?.let { categoryById[it]?.name }
             ?: if (moneyMovementType == MoneyMovementType.INTERNAL_TRANSFER) "Transfers" else null
             ?: "Unknown"
+        val flowStatusUi = when {
+            flowEventCount > 1 && moneyMovementType == MoneyMovementType.INTERNAL_TRANSFER -> FlowStatusUi.MATCHED
+            else -> flowStatus.toFlowStatusUi()
+        }
         return TransactionListItem(
             id = id,
             merchantName = counterpartyName?.takeIf { it.isNotBlank() }
@@ -258,6 +305,9 @@ class TransactionsViewModel @Inject constructor(
             movementType = moneyMovementType,
             plannedUse = plannedUse,
             includedInSpendingTotals = includedInSpendingTotals,
+            flowStatus = flowStatusUi,
+            flowType = moneyMovementType.toFlowTypeUi(flowType),
+            flowEventCount = flowEventCount,
         )
     }
 
@@ -280,19 +330,170 @@ class TransactionsViewModel @Inject constructor(
             TransactionFilter.Unknown -> isUnknownCategory || movementType == MoneyMovementType.UNKNOWN
         }
 
-    private fun TransactionListItem.toDetail(): TransactionDetail =
-        TransactionDetail(
-            id = id,
-            merchantName = merchantName,
-            categoryName = categoryName,
+    private fun TransactionFlowGroup.toFlowDetail(
+        categoryById: Map<String, Category>,
+        ownedWallets: List<OwnedInstrument>,
+        now: Instant,
+    ): TransactionFlowDetail {
+        val item = primary.toListItem(
+            categoryById = categoryById,
+            now = now,
+            flowEventCount = transactions.size,
+        )
+        val effectiveFlowType = item.flowType ?: FlowTypeUi.UNKNOWN
+        val effectiveFlowStatus = item.flowStatus ?: FlowStatusUi.COMPLETE
+
+        val accountingImpact = when (effectiveFlowType) {
+            FlowTypeUi.INTERNAL_TRANSFER -> AccountingImpactUi(
+                label = "Excluded from spending and income",
+                description = "This transfer moves money between your own accounts",
+                isExcluded = true,
+            )
+            FlowTypeUi.EXPENSE, FlowTypeUi.CARD_SPEND -> AccountingImpactUi(
+                label = "Counts as spending",
+                description = "This flow is included in your expense totals",
+                isExcluded = false,
+            )
+            FlowTypeUi.INCOME, FlowTypeUi.CASH_DEPOSIT -> AccountingImpactUi(
+                label = "Counts as income",
+                description = "This flow is included in your income totals",
+                isExcluded = false,
+            )
+            else -> AccountingImpactUi(
+                label = "Uncategorized",
+                description = "Classify this flow to include it in your reports",
+                isExcluded = false,
+            )
+        }
+
+        val matchingState = when (effectiveFlowStatus) {
+            FlowStatusUi.MATCHED -> MatchingStateUi(
+                label = "Matched from 2 messages",
+                detail = null,
+                isWaiting = false,
+            )
+            FlowStatusUi.PENDING_MATCH -> MatchingStateUi(
+                label = "Waiting for matching SMS",
+                detail = "The app is still watching for a pair",
+                isWaiting = true,
+            )
+            FlowStatusUi.UNMATCHED -> MatchingStateUi(
+                label = "No matching SMS found",
+                detail = null,
+                isWaiting = false,
+            )
+            else -> null
+        }
+
+        return TransactionFlowDetail(
+            flowId = id,
+            title = item.merchantName,
+            flowType = effectiveFlowType,
+            flowStatus = effectiveFlowStatus,
+            accountingImpact = accountingImpact,
+            amountMinor = item.amountMinor,
+            currency = item.currency,
+            categoryName = item.categoryName,
+            categoryId = item.categoryId,
+            plannedUse = item.plannedUse,
+            sourceInstrument = findSourceInstrument(ownedWallets, effectiveFlowType),
+            destinationInstrument = findDestinationInstrument(ownedWallets, effectiveFlowType),
+            events = transactions.map { it.toEvidenceEventUi() },
+            matchingState = matchingState,
+            dateGroup = item.dateGroup,
+            timestamp = item.timestamp,
+            flowEventCount = transactions.size,
+            provider = item.provider,
+            reference = item.reference,
+            balanceAfterMinor = item.balanceAfterMinor,
+        )
+    }
+
+    private fun TransactionFlowGroup.findSourceInstrument(
+        ownedWallets: List<OwnedInstrument>,
+        flowType: FlowTypeUi,
+    ): InstrumentUi? {
+        val debitSource = transactions
+            .firstOrNull { it.direction == TransactionDirection.DEBIT }
+            ?.toSourceInstrumentUi(ownedWallets, flowType)
+        return debitSource ?: transactions.firstNotNullOfOrNull {
+            it.toSourceInstrumentUi(ownedWallets, flowType)
+        }
+    }
+
+    private fun TransactionFlowGroup.findDestinationInstrument(
+        ownedWallets: List<OwnedInstrument>,
+        flowType: FlowTypeUi,
+    ): InstrumentUi? {
+        val creditDestination = transactions
+            .firstOrNull { it.direction == TransactionDirection.CREDIT }
+            ?.toDestinationInstrumentUi(ownedWallets, flowType)
+        return creditDestination ?: transactions.firstNotNullOfOrNull {
+            it.toDestinationInstrumentUi(ownedWallets, flowType)
+        }
+    }
+
+    private fun Transaction.toSourceInstrumentUi(
+        ownedWallets: List<OwnedInstrument>,
+        flowType: FlowTypeUi,
+    ): InstrumentUi? =
+        toInstrumentUi(
+            type = eventSourceInstrumentType,
+            provider = eventSourceInstrumentProvider,
+            identifier = eventSourceInstrumentIdentifier,
+            ownedWallets = ownedWallets,
+            flowType = flowType,
+        )
+
+    private fun Transaction.toDestinationInstrumentUi(
+        ownedWallets: List<OwnedInstrument>,
+        flowType: FlowTypeUi,
+    ): InstrumentUi? =
+        toInstrumentUi(
+            type = eventDestinationInstrumentType,
+            provider = eventDestinationInstrumentProvider,
+            identifier = eventDestinationInstrumentIdentifier,
+            ownedWallets = ownedWallets,
+            flowType = flowType,
+        )
+
+    private fun toInstrumentUi(
+        type: InstrumentType?,
+        provider: InstrumentProvider?,
+        identifier: String?,
+        ownedWallets: List<OwnedInstrument>,
+        flowType: FlowTypeUi,
+    ): InstrumentUi? {
+        if (type == null && provider == null && identifier.isNullOrBlank()) return null
+        val confirmedInstrument = ownedWallets.firstOrNull { owned ->
+            owned.matchesIdentifier(identifier) &&
+                (provider == null || owned.provider == provider || provider == InstrumentProvider.UNKNOWN)
+        }
+        val ownership = when {
+            confirmedInstrument != null -> OwnershipUi.USER_CONFIRMED
+            flowType == FlowTypeUi.INTERNAL_TRANSFER -> OwnershipUi.STRONGLY_INFERRED
+            flowType == FlowTypeUi.EXPENSE && identifier != null -> OwnershipUi.EXTERNAL
+            else -> OwnershipUi.UNKNOWN
+        }
+        return InstrumentUi(
+            provider = provider.toDisplayName(type),
+            userLabel = confirmedInstrument?.label,
+            maskedIdentifier = identifier?.maskInstrumentIdentifier(),
+            ownership = ownership,
+        )
+    }
+
+    private fun Transaction.toEvidenceEventUi(): EvidenceEventUi =
+        EvidenceEventUi(
+            provider = provider.toDisplayName(),
+            direction = direction.toDisplayName(),
+            time = occurredAt.formatTime(),
             amountMinor = amountMinor,
-            isCredit = isCredit,
-            timestamp = timestamp,
-            dateGroup = dateGroup,
-            provider = provider,
-            reference = reference,
-            balanceAfterMinor = balanceAfterMinor,
             currency = currency,
+            channel = eventChannel.toDisplayName(moneyMovementType),
+            sourceIdentifier = eventSourceInstrumentIdentifier?.maskInstrumentIdentifier(),
+            destinationIdentifier = eventDestinationInstrumentIdentifier?.maskInstrumentIdentifier(),
+            reference = eventProviderReference ?: plannedUse ?: reference,
         )
 
     private fun Instant.formatTime(): String =
@@ -318,15 +519,109 @@ class TransactionsViewModel @Inject constructor(
             Provider.UNKNOWN -> "Unknown"
         }
 
+    private fun InstrumentProvider?.toDisplayName(type: InstrumentType?): String =
+        when (this) {
+            InstrumentProvider.MTN -> "MTN MoMo"
+            InstrumentProvider.TELECEL -> "Telecel Cash"
+            InstrumentProvider.GCB -> when (type) {
+                InstrumentType.CARD -> "GCB Card"
+                InstrumentType.BANK_ACCOUNT -> "GCB Account"
+                else -> "GCB Bank"
+            }
+            InstrumentProvider.OTHER -> "Other"
+            InstrumentProvider.UNKNOWN, null -> when (type) {
+                InstrumentType.WALLET -> "Wallet"
+                InstrumentType.BANK_ACCOUNT -> "Bank account"
+                InstrumentType.CARD -> "Card"
+                else -> "Unknown"
+            }
+        }
+
+    private fun TransactionDirection.toDisplayName(): String =
+        when (this) {
+            TransactionDirection.DEBIT -> "Debit"
+            TransactionDirection.CREDIT -> "Credit"
+        }
+
+    private fun MoneyMovementChannel?.toDisplayName(fallbackType: MoneyMovementType): String =
+        when (this) {
+            MoneyMovementChannel.MERCHANT_PAYMENT -> "Merchant payment"
+            MoneyMovementChannel.WALLET_TO_WALLET -> "Wallet to wallet"
+            MoneyMovementChannel.WALLET_TO_BANK -> "Wallet to bank"
+            MoneyMovementChannel.BANK_TO_WALLET -> "Bank to wallet"
+            MoneyMovementChannel.CARD_TOP_UP -> "Card top up"
+            MoneyMovementChannel.CARD_SPEND -> "Card spend"
+            MoneyMovementChannel.CASH_IN -> "Cash in"
+            MoneyMovementChannel.CASH_DEPOSIT -> "Cash deposit"
+            MoneyMovementChannel.AIRTIME_DATA -> "Airtime/data"
+            MoneyMovementChannel.UNKNOWN, null -> fallbackType.toDisplayLabel()
+        }
+
+    private fun MoneyMovementType.toDisplayLabel(): String =
+        when (this) {
+            MoneyMovementType.EXPENSE -> "Expense"
+            MoneyMovementType.INCOME -> "Income"
+            MoneyMovementType.INTERNAL_TRANSFER -> "Internal transfer"
+            MoneyMovementType.SAVINGS_CONTRIBUTION -> "Savings"
+            MoneyMovementType.SUBSCRIPTION_CANDIDATE -> "Subscription"
+            MoneyMovementType.UNKNOWN -> "Unknown"
+        }
+
+    private fun String.maskInstrumentIdentifier(): String {
+        val compact = filter { it.isLetterOrDigit() }
+        if (compact.startsWith("233") && compact.length == 12) {
+            val local = "0${compact.drop(3)}"
+            return "${local.take(3)} *** ${local.takeLast(4)}"
+        }
+        if (compact.length == 10 && compact.startsWith("0")) {
+            return "${compact.take(3)} *** ${compact.takeLast(4)}"
+        }
+        return when {
+            length <= 4 -> this
+            length <= 8 -> "***${takeLast(4)}"
+            else -> "${take(4)}...${takeLast(4)}"
+        }
+    }
+
     private fun String.toMoneyMovementType(): MoneyMovementType? =
         when (this) {
             "Expense" -> MoneyMovementType.EXPENSE
             "Income" -> MoneyMovementType.INCOME
-            "Internal Transfer" -> MoneyMovementType.INTERNAL_TRANSFER
+            "Internal transfer", "Internal Transfer" -> MoneyMovementType.INTERNAL_TRANSFER
+            "Cash deposit" -> MoneyMovementType.INCOME
+            "Card spend" -> MoneyMovementType.EXPENSE
             "Savings" -> MoneyMovementType.SAVINGS_CONTRIBUTION
-            "Ignore" -> MoneyMovementType.UNKNOWN
+            "Ignore", "Unknown" -> MoneyMovementType.UNKNOWN
             else -> null
         }
+
+    private fun TransactionFlowStatus?.toFlowStatusUi(): FlowStatusUi? =
+        when (this) {
+            TransactionFlowStatus.COMPLETE -> FlowStatusUi.COMPLETE
+            TransactionFlowStatus.PENDING_MATCH -> FlowStatusUi.PENDING_MATCH
+            TransactionFlowStatus.UNMATCHED -> FlowStatusUi.UNMATCHED
+            TransactionFlowStatus.NEEDS_REVIEW -> FlowStatusUi.NEEDS_REVIEW
+            null -> null
+        }
+
+    private fun MoneyMovementType.toFlowTypeUi(
+        flowType: TransactionFlowType? = null,
+    ): FlowTypeUi = when (this) {
+        MoneyMovementType.EXPENSE -> if (flowType == TransactionFlowType.CARD_SPEND) {
+            FlowTypeUi.CARD_SPEND
+        } else {
+            FlowTypeUi.EXPENSE
+        }
+        MoneyMovementType.INCOME -> if (flowType == TransactionFlowType.CASH_DEPOSIT) {
+            FlowTypeUi.CASH_DEPOSIT
+        } else {
+            FlowTypeUi.INCOME
+        }
+        MoneyMovementType.INTERNAL_TRANSFER -> FlowTypeUi.INTERNAL_TRANSFER
+        MoneyMovementType.SAVINGS_CONTRIBUTION -> FlowTypeUi.INCOME
+        MoneyMovementType.SUBSCRIPTION_CANDIDATE -> FlowTypeUi.EXPENSE
+        MoneyMovementType.UNKNOWN -> FlowTypeUi.UNKNOWN
+    }
 }
 
 data class TransactionsUiState(
@@ -334,7 +629,7 @@ data class TransactionsUiState(
     val selectedFilter: TransactionFilter = TransactionFilter.All,
     val groups: List<TransactionGroup> = emptyList(),
     val categoryOptions: List<TransactionCategoryOption> = emptyList(),
-    val selectedTransaction: TransactionDetail? = null,
+    val selectedFlow: TransactionFlowDetail? = null,
     val totalBalanceMinor: Long = 0L,
     val providerBalances: List<ProviderBalanceSnapshot> = emptyList(),
     val incomeMinor: Long = 0L,
@@ -349,6 +644,13 @@ private data class TransactionUiInputs(
     val transactions: List<Transaction>,
     val categoryEntities: List<com.kevin.financeguardian.data.local.entity.CategoryEntity>,
     val balancesVisible: Boolean,
+    val ownedWallets: List<OwnedInstrument>,
+)
+
+private data class TransactionFlowGroup(
+    val id: String,
+    val primary: Transaction,
+    val transactions: List<Transaction>,
 )
 
 data class ProviderBalanceSnapshot(
@@ -386,9 +688,16 @@ data class TransactionListItem(
     val movementType: MoneyMovementType,
     val plannedUse: String?,
     val includedInSpendingTotals: Boolean = movementType != MoneyMovementType.INTERNAL_TRANSFER && !isCredit,
+    val flowStatus: FlowStatusUi? = null,
+    val flowType: FlowTypeUi? = null,
+    val flowEventCount: Int = 1,
+    val sourceProvider: String? = null,
+    val destinationProvider: String? = null,
 ) {
     val isUnknownCategory: Boolean =
         categoryName.equals("Unknown", ignoreCase = true) || categoryId == null
+    val isInternalTransfer: Boolean =
+        movementType == MoneyMovementType.INTERNAL_TRANSFER
 }
 
 data class TransactionCategoryOption(
